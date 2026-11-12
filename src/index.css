@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Semantic design tokens. Light is the default; `.dark` on <html> switches the palette. */
+:root {
+  --c-bg: #f7f8fa;
+  --c-panel: #ffffff;
+  --c-panel-2: #f8f9fb;
+  --c-border: #e8eaee;
+  --c-border-strong: #d5d9df;
+  --c-fg: #22272e;
+  --c-fg-muted: #6b7280;
+  --c-fg-faint: #a0a7b1;
+  --c-accent: #2f6fed;
+  --c-accent-soft: #e8f0fe;
+  --c-accent-fg: #ffffff;
+  --c-hover: #f2f4f7;
+  --c-selected: #eaf1fe;
+  --c-success: #2da44e;
+  --c-warning: #d4a72c;
+  --c-danger: #d1242f;
+  --c-info: #2f6fed;
+  --c-grid: #eceff2;
+  color-scheme: light;
+}
+
+.dark {
+  --c-bg: #0f1115;
+  --c-panel: #171a20;
+  --c-panel-2: #1d2128;
+  --c-border: #2a2f38;
+  --c-border-strong: #3a414d;
+  --c-fg: #e6e8eb;
+  --c-fg-muted: #9aa3ad;
+  --c-fg-faint: #6b7380;
+  --c-accent: #4c8dff;
+  --c-accent-soft: #1b2a47;
+  --c-accent-fg: #ffffff;
+  --c-hover: #20252d;
+  --c-selected: #1b2a47;
+  --c-success: #3fb950;
+  --c-warning: #d29922;
+  --c-danger: #f85149;
+  --c-info: #4c8dff;
+  --c-grid: #242931;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-bg: var(--c-bg);
+  --color-panel: var(--c-panel);
+  --color-panel-2: var(--c-panel-2);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-fg-muted);
+  --color-faint: var(--c-fg-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-fg: var(--c-accent-fg);
+  --color-hover: var(--c-hover);
+  --color-selected: var(--c-selected);
+  --color-success: var(--c-success);
+  --color-warning: var(--c-warning);
+  --color-danger: var(--c-danger);
+  --color-info: var(--c-info);
+  --color-grid: var(--c-grid);
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-bg text-fg text-[13px] antialiased; font-feature-settings: 'tnum' 1, 'cv11' 1; }
+
+@layer components {
+.input {
+  @apply h-8 rounded-md border border-border bg-panel px-2 text-[13px] text-fg placeholder:text-faint
+         focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50;
+}
+.btn {
+  @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-panel px-3 text-[13px] font-medium
+         text-fg shadow-[0_1px_0_rgba(0,0,0,0.02)] hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap;
+}
+.btn-sm { @apply h-7 px-2 text-xs; }
+.btn-primary { @apply border-accent bg-accent text-accent-fg hover:bg-accent/90; }
+.btn-danger { @apply border-danger bg-danger text-white hover:bg-danger/90; }
+.btn-ghost { @apply border-transparent bg-transparent hover:bg-hover; }
+.btn-active { @apply border-accent bg-accent-soft text-accent; }
+
+.card { @apply rounded-lg border border-border bg-panel shadow-[0_1px_2px_rgba(16,24,40,0.04)]; }
+
+.table { @apply w-full text-left text-[13px]; }
+.table th { @apply sticky top-0 z-10 border-b border-border bg-panel px-3 py-2 text-xs font-medium text-muted whitespace-nowrap; }
+.table td { @apply border-b border-border px-3 py-2 align-middle; }
+.table tbody tr:hover { @apply bg-hover; }
+.table.dense td { @apply py-1.5; }
+.table tbody tr:last-child td { @apply border-b-0; }
+
+.badge { @apply inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium leading-4; }
+.badge-upper { @apply uppercase tracking-wide font-semibold; }
+.chip { @apply inline-flex h-6 items-center gap-1 rounded-full border border-border bg-panel px-2 text-xs; }
+
+.seg { @apply inline-flex rounded-md border border-border bg-panel p-0.5; }
+.seg button { @apply inline-flex h-6 items-center gap-1 rounded px-2 text-xs text-muted hover:text-fg; }
+.seg button.active { @apply bg-accent-soft text-accent font-medium; }
+
+.facet-group summary { @apply flex cursor-pointer select-none items-center gap-1 px-2 py-1.5 text-xs font-medium text-fg; }
+.facet-group summary::-webkit-details-marker { display: none; }
+.facet-row { @apply flex items-center gap-2 rounded px-2 py-[3px] text-xs text-fg hover:bg-hover cursor-pointer outline-none; }
+.facet-row:focus-visible, .table tbody tr:focus-visible, .btn:focus-visible, .seg button:focus-visible, .input:focus-visible { @apply ring-2 ring-accent/40 outline-none; }
+.table tbody tr:focus-visible { @apply bg-selected; }
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-border-strong; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+
+/* Very thin scrollbar for the facet rail: invisible until hovered. */
+.thin-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.thin-scroll:hover { scrollbar-color: var(--c-border-strong) transparent; }
+.thin-scroll::-webkit-scrollbar { width: 4px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 9999px; }
+.thin-scroll:hover::-webkit-scrollbar-thumb { background: var(--c-border-strong); }
