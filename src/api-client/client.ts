@@ -24,10 +24,103 @@ export interface Agent {
   remote_config_status: 'unset' | 'applied' | 'applying' | 'failed'
   remote_config_error: string | null
   desired_config_version_id: string | null
+  desired_config: DesiredConfig | null
   connected: boolean
   first_seen: string
   last_seen: string
 }
+
+export interface DesiredConfig {
+  version_id: string
+  template_id: string
+  template_name: string
+  version: number
+  in_sync: boolean
+}
+
+export interface ConfigTemplate {
+  id: string
+  name: string
+  description: string
+  origin: 'ui' | 'git'
+  latest_version: number
+  assigned_agents: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ConfigVersion {
+  id: string
+  template_id: string
+  version: number
+  body?: string
+  author: string
+  description: string
+  origin: 'ui' | 'git'
+  git_commit_sha: string | null
+  created_at: string
+}
+
+export interface Issue {
+  severity: 'error' | 'warning'
+  path?: string
+  message: string
+}
+
+export type Selector = Record<string, string[]>
+
+export interface Facet {
+  key: string
+  values: { value: string; count: number }[]
+}
+
+export type RolloutStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'rolled_back' | 'aborted'
+export type RolloutAgentStatus = 'pending' | 'offered' | 'applying' | 'applied' | 'failed' | 'skipped'
+
+export interface Rollout {
+  id: string
+  config_version_id: string
+  config_id: string
+  config_name: string
+  config_version: number
+  selector: Selector
+  batch_size: number
+  max_failure_pct: number
+  status: RolloutStatus
+  batches_released: number
+  total_batches: number
+  total_agents: number
+  created_by: string
+  created_at: string
+  finished_at: string | null
+  error: string | null
+  counts: Partial<Record<RolloutAgentStatus, number>>
+}
+
+export interface RolloutProblem {
+  instance_uid: string
+  host_name: string
+  batch: number
+  status: RolloutAgentStatus
+  error: string
+}
+
+export interface RolloutPreview {
+  total: number
+  connected: number
+  eligible: number
+}
+
+export interface NewRollout {
+  config_version_id: string
+  selector: Selector
+  all_agents: boolean
+  batch_size: number
+  max_failure_pct: number
+}
+
+/** AgentCapabilities bit: the agent accepts remote config from the server. */
+export const CAP_ACCEPTS_REMOTE_CONFIG = 0x2
 
 export interface Summary {
   total: number
@@ -57,9 +150,12 @@ export interface AgentQuery {
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /** Validation issues, present on 422 responses. */
+  issues: Issue[]
+  constructor(status: number, message: string, issues: Issue[] = []) {
     super(message)
     this.status = status
+    this.issues = issues
   }
 }
 
@@ -84,7 +180,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (res.status === 401 && token) onUnauthorized()
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new ApiError(res.status, body?.error ?? res.statusText)
+    throw new ApiError(res.status, body?.error ?? res.statusText, body?.issues)
   }
   return res.status === 204 ? (undefined as T) : res.json()
 }
@@ -101,6 +197,28 @@ export const api = {
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
+  assignConfig: (uid: string, configVersionId: string) =>
+    request<void>(`/agents/${uid}/config`, { method: 'PUT', body: JSON.stringify({ config_version_id: configVersionId }) }),
+  configs: () => request<{ configs: ConfigTemplate[] }>('/configs'),
+  config: (id: string) => request<{ config: ConfigTemplate; versions: ConfigVersion[] }>(`/configs/${id}`),
+  configVersion: (id: string, version: number) => request<ConfigVersion>(`/configs/${id}/versions/${version}`),
+  createConfig: (name: string, description: string, body: string) =>
+    request<{ config: ConfigTemplate; version: ConfigVersion }>('/configs', {
+      method: 'POST',
+      body: JSON.stringify({ name, description, body }),
+    }),
+  addConfigVersion: (id: string, body: string, description: string) =>
+    request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ body, description }) }),
+  deleteConfig: (id: string) => request<void>(`/configs/${id}`, { method: 'DELETE' }),
+  validateConfig: (body: string) =>
+    request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),
+  facets: () => request<{ facets: Facet[] }>('/agents/facets'),
+  rollouts: () => request<{ rollouts: Rollout[] }>('/rollouts'),
+  rollout: (id: string) => request<{ rollout: Rollout; problems: RolloutProblem[] }>(`/rollouts/${id}`),
+  previewRollout: (selector: Selector) =>
+    request<RolloutPreview>('/rollouts/preview', { method: 'POST', body: JSON.stringify({ selector }) }),
+  createRollout: (r: NewRollout) => request<Rollout>('/rollouts', { method: 'POST', body: JSON.stringify(r) }),
+  rolloutAction: (id: string, action: 'pause' | 'resume' | 'abort') => request<void>(`/rollouts/${id}/${action}`, { method: 'POST' }),
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
   issueApiKey: (name: string, expiresAt: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),

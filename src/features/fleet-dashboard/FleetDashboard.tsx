@@ -11,8 +11,8 @@ const PAGE_SIZE = 50
 function Stat({ label, value, tone }: { label: string; value: number | undefined; tone?: string }) {
   return (
     <div className="card px-4 py-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className={`text-2xl font-semibold ${tone ?? ''}`}>{value?.toLocaleString() ?? '–'}</div>
+      <div className="text-xs font-medium text-muted">{label}</div>
+      <div className={`mt-0.5 text-2xl font-semibold tracking-tight ${tone ?? ''}`}>{value?.toLocaleString() ?? '–'}</div>
     </div>
   )
 }

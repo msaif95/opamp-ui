@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { KeyRound, LogOut, Server } from 'lucide-react'
+import { FileCode, KeyRound, LogOut, Rocket, Server } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
 import { useAuth } from '../auth/AuthProvider'
+import { LogoMark, ThemeSwitch, Wordmark } from './Brand'
 
 const REFRESH_THROTTLE_MS = 2000
 
@@ -33,15 +34,29 @@ export function Layout() {
   useLiveAgentUpdates()
 
   const link = ({ isActive }: { isActive: boolean }) =>
-    clsx('flex items-center gap-2 rounded-md px-2 py-1.5', isActive ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover hover:text-fg')
+    clsx(
+      'relative flex items-center gap-2 rounded-md px-2.5 py-1.5',
+      isActive
+        ? 'bg-accent-soft font-medium text-accent before:absolute before:inset-y-1.5 before:-left-3 before:w-[3px] before:rounded-r before:bg-accent'
+        : 'text-muted hover:bg-hover hover:text-fg',
+    )
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-border bg-panel p-3">
-        <div className="px-2 pb-4 text-sm font-semibold">OpAMP Fleet</div>
+      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar p-3">
+        <div className="flex items-center gap-2.5 px-1.5 pb-5 pt-1">
+          <LogoMark />
+          <Wordmark />
+        </div>
         <nav className="flex-1 space-y-1">
           <NavLink to="/agents" className={link}>
             <Server size={15} /> Fleet
+          </NavLink>
+          <NavLink to="/configs" className={link}>
+            <FileCode size={15} /> Configs
+          </NavLink>
+          <NavLink to="/rollouts" className={link}>
+            <Rocket size={15} /> Bulk push
           </NavLink>
           {can('admin') && (
             <NavLink to="/credentials" className={link}>
@@ -49,10 +64,18 @@ export function Layout() {
             </NavLink>
           )}
         </nav>
-        <div className="flex items-center justify-between border-t border-border px-2 pt-3 text-xs">
-          <div>
-            <div className="font-medium">{user?.subject}</div>
-            <div className="text-muted capitalize">{user?.role}</div>
+        <div className="pb-3">
+          <ThemeSwitch />
+        </div>
+        <div className="flex items-center justify-between border-t border-border px-1.5 pt-3 text-xs">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold uppercase text-accent">
+              {user?.subject.charAt(0)}
+            </span>
+            <div className="min-w-0">
+              <div className="truncate font-medium">{user?.subject}</div>
+              <div className="text-muted capitalize">{user?.role}</div>
+            </div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={logout} title="Sign out">
             <LogOut size={14} />

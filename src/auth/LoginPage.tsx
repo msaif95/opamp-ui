@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { LogoMark, ThemeSwitch, Wordmark } from '../components/Brand'
 import { useAuth } from './AuthProvider'
 
 export function LoginPage() {
@@ -22,12 +23,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <form onSubmit={submit} className="card w-80 space-y-4 p-6">
-        <div>
-          <h1 className="text-base font-semibold">OpAMP Fleet Manager</h1>
-          <p className="text-xs text-muted">Local administrator sign-in</p>
-        </div>
+    <div className="relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden">
+      <div className="brand-gradient pointer-events-none absolute -top-40 h-80 w-[40rem] rounded-full opacity-20 blur-3xl" aria-hidden="true" />
+      <div className="relative flex flex-col items-center gap-3">
+        <LogoMark size={44} />
+        <Wordmark large />
+        <p className="text-xs text-muted">Fleet management for OpenTelemetry Collectors</p>
+      </div>
+      <form onSubmit={submit} className="card relative w-80 space-y-4 p-6">
+        <p className="text-xs text-muted">Local administrator sign-in</p>
         <label className="block space-y-1">
           <span className="text-xs text-muted">Username</span>
           <input className="input w-full" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
@@ -48,6 +52,9 @@ export function LoginPage() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      <div className="relative w-32">
+        <ThemeSwitch />
+      </div>
     </div>
   )
 }
