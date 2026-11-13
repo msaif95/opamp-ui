@@ -83,6 +83,13 @@ function copy(s: SystemStatus): Record<ProtectionKey, Copy> {
       unavailable: '',
       important: false,
     },
+    second_approver: {
+      name: 'Second approver for bulk pushes',
+      on: 'Someone other than the person who started a bulk push must resume it or approve its next batch.',
+      off: 'Switched off. The person who started a bulk push can also approve and resume it.',
+      unavailable: '',
+      important: true,
+    },
     fleet_health_alerts: {
       name: 'Fleet health alerts',
       on: `Alerts when ${limits}.`,

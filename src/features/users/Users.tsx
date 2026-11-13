@@ -84,6 +84,7 @@ export function Users() {
     mutationFn: (v: { project: string; subject: string }) => api.removeProjectMember(v.project, v.subject),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['users'] }), qc.invalidateQueries({ queryKey: ['projects'] })]),
   })
+  const signOut = useMutation({ mutationFn: api.endUserSessions })
   const q = search.trim().toLowerCase()
   const shown = (users.data?.users ?? []).filter((u) => !q || u.subject.includes(q) || u.name.toLowerCase().includes(q) || u.projects.some((p) => p.name.toLowerCase().includes(q)))
 
@@ -153,7 +154,23 @@ export function Users() {
                   <td className="text-right">
                     <button className="btn btn-sm" onClick={() => setAdding(u)}>
                       Add to project
-                    </button>
+                    </button>{' '}
+                    {u.provider !== '' && (
+                      <button
+                        className="btn btn-sm"
+                        disabled={signOut.isPending}
+                        onClick={() =>
+                          void confirmDialog({
+                            title: `Sign ${u.subject} out everywhere?`,
+                            body: 'Their open console sessions end at once. They can sign in again unless their access was also removed in Okta.',
+                            action: 'Sign out',
+                            danger: true,
+                          }).then((ok) => ok && signOut.mutate(u.subject))
+                        }
+                      >
+                        Sign out
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

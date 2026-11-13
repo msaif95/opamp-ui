@@ -255,6 +255,7 @@ export type ProtectionKey =
   | 'telemetry'
   | 'rebalancing'
   | 'fleet_health_alerts'
+  | 'second_approver'
 
 export interface Protection {
   key: ProtectionKey
@@ -438,6 +439,9 @@ export const api = {
   login: (username: string, password: string) =>
     request<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request<User>('/auth/me'),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  endUserSessions: (subject: string) =>
+    request<{ sessions_ended: number }>(`/users/${encodeURIComponent(subject)}/sessions`, { method: 'DELETE' }),
   summary: (project?: string, group?: string) => {
     const p = new URLSearchParams()
     if (project) p.set('project_id', project)

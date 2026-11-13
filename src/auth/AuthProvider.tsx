@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(() => getToken() !== null)
 
   const logout = useCallback(() => {
+    // End the session on the server too, so the token cannot be reused. Best effort: sign out locally regardless.
+    if (getToken()) void api.logout().catch(() => undefined)
     setToken(null)
     setUser(null)
   }, [])
