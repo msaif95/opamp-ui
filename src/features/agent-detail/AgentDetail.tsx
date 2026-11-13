@@ -135,9 +135,14 @@ export function AgentDetail() {
             ),
           },
           { value: 'activity', label: 'Activity', content: <AgentActivity uid={a.instance_uid} /> },
-          { value: 'metrics', label: 'Metrics', content: <AgentMetrics agent={a} /> },
-          { value: 'logs', label: 'Logs', content: <AgentLogs agent={a} /> },
-          { value: 'traces', label: 'Traces', content: <AgentTraces agent={a} /> },
+          // A bridge is not a collector and sends no telemetry of its own; the collectors behind it report inside the cluster.
+          ...(isBridge
+            ? []
+            : [
+                { value: 'metrics', label: 'Metrics', content: <AgentMetrics agent={a} /> },
+                { value: 'logs', label: 'Logs', content: <AgentLogs agent={a} /> },
+                { value: 'traces', label: 'Traces', content: <AgentTraces agent={a} /> },
+              ]),
         ]}
       />
     </div>

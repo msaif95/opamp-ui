@@ -93,6 +93,10 @@ export function BridgeCollectors({ agent }: { agent: Agent }) {
         cluster. A collector labelled <code className="font-mono">opentelemetry.io/opamp-managed</code> can be given a config from here;
         one labelled <code className="font-mono">opentelemetry.io/opamp-reporting</code> is shown only.
       </p>
+      <p className="max-w-4xl text-xs text-muted">
+        These collectors' own logs, metrics and traces are not shown in this console: they do not connect to it, only the bridge does. Read
+        them in the cluster, for example with <code className="font-mono">kubectl logs</code> or from each pod's metrics endpoint.
+      </p>
       {error ? (
         <ErrorNote error={error} />
       ) : data?.collectors.length === 0 ? (
