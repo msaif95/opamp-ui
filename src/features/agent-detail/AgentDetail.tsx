@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { AgentStatus, Badge, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { PushConfig } from './PushConfig'
+import { Throughput } from './Throughput'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -20,7 +21,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function AgentDetail() {
   const { uid = '' } = useParams()
   const { can } = useAuth()
-  const { data: a, error, isLoading } = useQuery({ queryKey: ['agents', uid], queryFn: () => api.agent(uid) })
+  const { data: a, error, isLoading } = useQuery({ queryKey: ['agents', uid], queryFn: () => api.agent(uid), refetchInterval: 30_000 })
 
   if (isLoading) return <p className="text-muted">Loading…</p>
   if (error || !a) return <ErrorNote error={error} />
@@ -69,6 +70,8 @@ export function AgentDetail() {
           </dl>
         </section>
       </div>
+
+      <Throughput agent={a} />
 
       <section className="card">
         <h2 className="border-b border-border px-4 py-2 font-medium">Remote config</h2>

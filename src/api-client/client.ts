@@ -25,6 +25,8 @@ export interface Agent {
   remote_config_error: string | null
   desired_config_version_id: string | null
   desired_config: DesiredConfig | null
+  /** Latest pipeline rates in records per second, by direction then signal. Only on agent detail; null if not reported. */
+  throughput?: { at: string; rates: Record<string, Record<string, number>> } | null
   connected: boolean
   first_seen: string
   last_seen: string
