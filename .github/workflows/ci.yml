@@ -24,7 +24,7 @@ jobs:
         run: docker build -t ghcr.io/${{ github.repository_owner }}/opamp-ui:sha-${{ steps.v.outputs.sha }} .
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
       - name: Push image
         if: github.event_name != 'pull_request'
