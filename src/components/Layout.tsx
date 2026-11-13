@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, Keyboard, LayoutDashboard, LogOut, Network, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Search, Server, ShieldCheck, Tags, Users, type LucideIcon } from 'lucide-react'
+import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, Keyboard, LayoutDashboard, LogOut, Network, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Search, Server, ShieldCheck, SlidersHorizontal, Tags, Users, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
@@ -45,7 +45,6 @@ function useLiveAgentUpdates() {
 
 const COLLAPSED_KEY = 'opamp.sidebar.collapsed'
 
-const ADMIN_OPEN_KEY = 'opamp.sidebar.admin-open'
 
 interface NavItem {
   to: string
@@ -57,13 +56,34 @@ const NAV: NavItem[] = [
   { to: '/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/agents', label: 'Fleet', icon: Server },
   { to: '/topology', label: 'Topology', icon: Network },
-  { to: '/configs', label: 'Configs', icon: FileCode },
-  { to: '/groups', label: 'Groups', icon: Tags },
-  { to: '/rollouts', label: 'Bulk push', icon: Rocket },
 ]
 
+interface NavGroupDef {
+  /** Also the key its open/closed state is remembered under. */
+  id: string
+  label: string
+  icon: LucideIcon
+  items: NavItem[]
+  /** Whether it starts expanded for someone who has never toggled it. */
+  defaultOpen: boolean
+}
+
+/** What collectors run and how it reaches them: used daily, so it starts open. */
+const CONFIGURATION: NavGroupDef = {
+  id: 'configuration',
+  label: 'Configuration',
+  icon: SlidersHorizontal,
+  defaultOpen: true,
+  items: [
+    { to: '/configs', label: 'Config', icon: FileCode },
+    { to: '/groups', label: 'Group', icon: Tags },
+    { to: '/rollouts', label: 'Bulk push', icon: Rocket },
+  ],
+}
+
 /** Administrator pages, grouped under one "Admin" entry. */
-const ADMIN_NAV: NavItem[] = [
+const ADMIN: NavGroupDef = { id: 'admin', label: 'Admin', icon: ShieldCheck, defaultOpen: false, items: [] }
+ADMIN.items = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/credentials', label: 'Agent credentials', icon: KeyRound },
@@ -87,40 +107,41 @@ const useActive = () => {
 }
 
 /**
- * The Admin group. In the full sidebar it expands and collapses in place on click, and opens by itself while one
+ * A group of pages under one sidebar entry. In the full sidebar it expands and collapses in place on click, and opens by itself while one
  * of its pages is showing so the current page stays visible. In the icon-only sidebar there is no room to expand,
  * so it is a single icon that opens a menu on click.
  */
-function AdminNav({ collapsed }: { collapsed: boolean }) {
+function NavGroup({ group, collapsed }: { group: NavGroupDef; collapsed: boolean }) {
+  const storageKey = `opamp.sidebar.${group.id}-open`
   const active = useActive()
-  const onAdminPage = ADMIN_NAV.some((n) => active(n.to))
-  const [open, setOpen] = useState(() => localStorage.getItem(ADMIN_OPEN_KEY) === '1')
+  const onGroupPage = group.items.some((n) => active(n.to))
+  const [open, setOpen] = useState(() => (localStorage.getItem(storageKey) ?? (group.defaultOpen ? '1' : '0')) === '1')
   const toggle = () => {
-    localStorage.setItem(ADMIN_OPEN_KEY, open ? '0' : '1')
+    localStorage.setItem(storageKey, open ? '0' : '1')
     setOpen(!open)
   }
-  // Being on an admin page shows the group without changing what the user chose for other pages.
-  const expanded = open || onAdminPage
+  // Being on one of the group's pages shows the group without changing what the user chose for other pages.
+  const expanded = open || onGroupPage
 
   if (collapsed) {
     return (
       <DropdownMenu.Root>
         <Tooltip.Root>
           <Tooltip.Trigger asChild>
-            <DropdownMenu.Trigger className={itemClass(onAdminPage, true)} aria-label="Admin">
-              <ShieldCheck size={15} className="shrink-0" />
+            <DropdownMenu.Trigger className={itemClass(onGroupPage, true)} aria-label={group.label}>
+              <group.icon size={15} className="shrink-0" />
             </DropdownMenu.Trigger>
           </Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content side="right" sideOffset={8} className="z-50 rounded bg-fg px-2 py-1 text-xs text-bg shadow">
-              Admin
+              {group.label}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
         <DropdownMenu.Portal>
           <DropdownMenu.Content side="right" align="start" sideOffset={8} className="z-50 min-w-48 rounded-md border border-border bg-panel p-1 shadow-lg">
-            <DropdownMenu.Label className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-faint">Admin</DropdownMenu.Label>
-            {ADMIN_NAV.map(({ to, label, icon: Icon }) => (
+            <DropdownMenu.Label className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-muted">{group.label}</DropdownMenu.Label>
+            {group.items.map(({ to, label, icon: Icon }) => (
               <DropdownMenu.Item key={to} asChild>
                 <Link
                   to={to}
@@ -143,20 +164,20 @@ function AdminNav({ collapsed }: { collapsed: boolean }) {
   return (
     <div>
       <button
-        className={clsx(itemClass(false, false), onAdminPage && !expanded && 'text-accent')}
+        className={clsx(itemClass(false, false), onGroupPage && !expanded && 'text-accent')}
         onClick={toggle}
         aria-expanded={expanded}
-        aria-controls="admin-nav"
-        // While on an admin page the group stays open, so the button cannot close it.
-        disabled={onAdminPage}
+        aria-controls={`${group.id}-nav`}
+        // While on one of its pages the group stays open, so the button cannot close it.
+        disabled={onGroupPage}
       >
-        <ShieldCheck size={15} className="shrink-0" />
-        <span className="flex-1 truncate text-left">Admin</span>
+        <group.icon size={15} className="shrink-0" />
+        <span className="flex-1 truncate text-left">{group.label}</span>
         <ChevronRight size={14} className={clsx('shrink-0 transition-transform duration-150', expanded && 'rotate-90')} />
       </button>
       {expanded && (
-        <div id="admin-nav" className="ml-[17px] mt-1 space-y-1 border-l border-border pl-2">
-          {ADMIN_NAV.map(({ to, label, icon: Icon }) => (
+        <div id={`${group.id}-nav`} className="ml-[17px] mt-1 space-y-1 border-l border-border pl-2">
+          {group.items.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} className={itemClass(active(to), false)} aria-current={active(to) ? 'page' : undefined}>
               <Icon size={14} className="shrink-0" />
               <span className="truncate">{label}</span>
@@ -257,7 +278,8 @@ export function Layout() {
                 </Link>
               </Tip>
             ))}
-            {can('admin') && <AdminNav collapsed={collapsed} />}
+            <NavGroup group={CONFIGURATION} collapsed={collapsed} />
+            {can('admin') && <NavGroup group={ADMIN} collapsed={collapsed} />}
           </nav>
           {!collapsed && (
             <button className="mb-2 flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted hover:bg-hover hover:text-fg" onClick={openHelp}>

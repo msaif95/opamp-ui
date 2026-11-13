@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom'
 export const GO_TO: Record<string, { to: string; label: string }> = {
   o: { to: '/overview', label: 'Overview' },
   a: { to: '/agents', label: 'Fleet (agents)' },
-  c: { to: '/configs', label: 'Configs' },
-  g: { to: '/groups', label: 'Groups' },
+  c: { to: '/configs', label: 'Config' },
+  g: { to: '/groups', label: 'Group' },
   b: { to: '/rollouts', label: 'Bulk push' },
   t: { to: '/topology', label: 'Topology' },
 }

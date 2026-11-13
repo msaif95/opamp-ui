@@ -55,3 +55,4 @@ with its own theme.
 - Collector page tabs: Overview, Activity, Metrics (`AgentMetrics`: headline charts + one chart per reported metric),
   Logs, Traces. Each explains how to enable reporting when the collector lacks the capability bit.
 - A bridge's page (`connector_type === 'k8s_bridge'`) leads with a "Kubernetes collectors" tab (`BridgeCollectors`) and hides Push config and the stop/restart actions.
+- Sidebar groups are `NavGroupDef`s rendered by `NavGroup` in `Layout.tsx`: `CONFIGURATION` (Config, Group, Bulk push; open by default) and `ADMIN`. Add a page to a group's `items`.
