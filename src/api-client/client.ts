@@ -250,6 +250,7 @@ export type ProtectionKey =
   | 'sso'
   | 'local_login'
   | 'agent_tls'
+  | 'store_encryption'
   | 'agent_mtls'
   | 'alert_delivery'
   | 'telemetry'

@@ -53,6 +53,14 @@ function copy(s: SystemStatus): Record<ProtectionKey, Copy> {
       unavailable: 'Agents connect in plaintext. Acceptable for local development only. Set in the deployment; it cannot be changed here.',
       important: true,
     },
+    store_encryption: {
+      name: 'Encrypted connections to the database and Redis',
+      on: 'The backend connects to Postgres and Redis over TLS. Encryption of the data on disk is a setting of those stores themselves.',
+      off: '',
+      unavailable:
+        'At least one of the Postgres and Redis connections is not using TLS. Acceptable only in development, or where the network path is encrypted another way. Set in the deployment.',
+      important: true,
+    },
     agent_mtls: {
       name: 'Agent client certificates (mTLS)',
       on: 'Agents may authenticate with a certificate from the trusted CA, or with an API key.',
