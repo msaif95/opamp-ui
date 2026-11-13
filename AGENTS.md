@@ -33,7 +33,8 @@ with its own theme.
   right as a primary button) followed by the table. Creating or editing something small opens a `Modal` with the
   form (Cancel + primary button, right-aligned); never put a create form inline under a table. Full-page forms are
   only for the large ones (config editor/builder, new bulk push, add collectors). Secrets shown once use `SecretOnce`.
-- Pages holding several kinds of thing use Radix tabs with the open tab in `?tab=` (see `features/credentials`):
+- Pages holding several kinds of thing use `components/Tabs` (open tab kept in `?tab=`; see `features/credentials`
+  and the agent page's Overview/Activity):
   one `PageHeader`, then per tab a `TabIntro` (what it is + its main action) and one table.
 - Fleet filters are linked: a group belongs to one project, so picking a group sets the project filter, picking a
   project limits the group list and clears a group from another project, and the summary cards take both.

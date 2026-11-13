@@ -71,6 +71,15 @@ export interface Agent {
   last_seen: string
 }
 
+/** One entry in a collector's history. */
+export interface AgentEvent {
+  id: number
+  occurred_at: string
+  kind: string
+  /** Depends on the kind: config and version, an error, a health status, or collector versions. */
+  detail: { config?: string; version?: number; error?: string; status?: string; from?: string; to?: string; collector_version?: string; paused?: boolean }
+}
+
 /** One sample of a collector's own CPU, memory and throughput, about a minute apart. */
 export interface MetricPoint {
   at: string
@@ -460,6 +469,7 @@ export const api = {
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
   pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
+  agentEvents: (uid: string, before = 0) => request<{ events: AgentEvent[] }>(`/agents/${uid}/events?limit=100${before ? `&before=${before}` : ''}`),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>
     request<void>(`/agents/${uid}/config`, { method: 'PUT', body: JSON.stringify({ config_version_id: configVersionId }) }),

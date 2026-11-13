@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import * as Tabs from '@radix-ui/react-tabs'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { api, type ApiKey } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { Modal } from '../../components/Dialogs'
 import { ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { Select } from '../../components/Select'
+import { Tabs } from '../../components/Tabs'
 import { Badge, ErrorNote, PageHeader, SecretOnce } from '../../components/ui'
 import { confirmDialog } from '../../lib/dialog'
 import { timeAgo } from '../../lib/time'
@@ -75,12 +74,6 @@ function IssueKey({ onClose }: { onClose: () => void }) {
   )
 }
 
-const TABS = [
-  { value: 'keys', label: 'Agent API keys' },
-  { value: 'certificates', label: 'Revoked certificates' },
-  { value: 'tokens', label: 'Console API tokens' },
-]
-
 /** What a tab is for, with its main action on the right. */
 // oxlint-disable-next-line react/only-export-components
 export function TabIntro({ text, action }: { text: ReactNode; action: ReactNode }) {
@@ -107,9 +100,6 @@ export function Credentials() {
     certificates: certs.data?.revoked_certs.length,
     tokens: tokens.data?.tokens.filter((t) => !t.revoked_at).length,
   }
-  // The open tab lives in the URL, so a reload or a shared link lands on the same one.
-  const [params, setParams] = useSearchParams()
-  const tab = TABS.some((t) => t.value === params.get('tab')) ? params.get('tab')! : TABS[0].value
   const refresh = () => qc.invalidateQueries({ queryKey: ['api-keys'] })
   const revoke = useMutation({ mutationFn: api.revokeCredential, onSuccess: refresh })
   const move = useMutation({
@@ -121,21 +111,15 @@ export function Credentials() {
     <div className="space-y-4">
       <PageHeader title="Agent credentials" description="How collectors and automation prove who they are, and how to cut one off." />
 
-      <Tabs.Root value={tab} onValueChange={(v) => setParams(v === TABS[0].value ? {} : { tab: v }, { replace: true })}>
-        <Tabs.List className="flex gap-1 border-b border-border" aria-label="Kinds of credential">
-          {TABS.map((t) => (
-            <Tabs.Trigger
-              key={t.value}
-              value={t.value}
-              className="-mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 data-[state=active]:border-accent data-[state=active]:font-medium data-[state=active]:text-accent"
-            >
-              {t.label}
-              {counts[t.value] !== undefined && <span className="rounded-full bg-panel-2 px-1.5 text-[11px] text-muted">{counts[t.value]}</span>}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-
-        <Tabs.Content value="keys" className="space-y-4 pt-4 outline-none">
+      <Tabs
+        label="Kinds of credential"
+        tabs={[
+          {
+            value: 'keys',
+            label: 'Agent API keys',
+            count: counts.keys,
+            content: (
+              <>
           <TabIntro
             text="API keys that collectors connect with. A collector joins the project of its key. To install collectors with a new key in one step, use Fleet → Add collectors."
             action={
@@ -219,15 +203,13 @@ export function Credentials() {
           )}
           {(revoke.error ?? move.error) && <p className="p-3 text-xs text-danger">{(revoke.error ?? move.error)?.message}</p>}
           </div>
-        </Tabs.Content>
-
-        <Tabs.Content value="certificates" className="pt-4 outline-none">
-          <RevokedCerts />
-        </Tabs.Content>
-        <Tabs.Content value="tokens" className="pt-4 outline-none">
-          <ApiTokens />
-        </Tabs.Content>
-      </Tabs.Root>
+              </>
+            ),
+          },
+          { value: 'certificates', label: 'Revoked certificates', count: counts.certificates, content: <RevokedCerts /> },
+          { value: 'tokens', label: 'Console API tokens', count: counts.tokens, content: <ApiTokens /> },
+        ]}
+      />
 
       <Modal open={issuing} onClose={() => setIssuing(false)} title="Issue an agent API key">
         {issuing && <IssueKey onClose={() => setIssuing(false)} />}
