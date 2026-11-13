@@ -6,6 +6,7 @@ import { api, CAP_ACCEPTS_REMOTE_CONFIG } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AgentStatus, Badge, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { AgentActions } from './AgentActions'
 import { CollectorCharts } from './CollectorCharts'
 import { PushConfig } from './PushConfig'
 
@@ -31,9 +32,12 @@ export function AgentDetail() {
       <Link to="/agents" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
         <ArrowLeft size={13} /> Fleet
       </Link>
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold">{a.attributes['host.name'] ?? a.instance_uid}</h1>
-        <AgentStatus agent={a} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold">{a.attributes['host.name'] ?? a.instance_uid}</h1>
+          <AgentStatus agent={a} />
+        </div>
+        {can('operator') && <AgentActions agent={a} />}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

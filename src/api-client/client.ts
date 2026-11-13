@@ -280,6 +280,8 @@ export interface NewRollout {
 
 /** AgentCapabilities bit: the agent accepts remote config from the server. */
 export const CAP_ACCEPTS_REMOTE_CONFIG = 0x2
+/** AgentCapabilities bit: the agent accepts restart commands. */
+export const CAP_ACCEPTS_RESTART = 0x400
 
 export interface Summary {
   total: number
@@ -373,6 +375,7 @@ export const api = {
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
+  restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>
     request<void>(`/agents/${uid}/config`, { method: 'PUT', body: JSON.stringify({ config_version_id: configVersionId }) }),
