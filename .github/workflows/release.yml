@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci && npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version && npm run lint && npm test && npm run build
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
       - run: |
           IMG=ghcr.io/${{ github.repository_owner }}/opamp-ui:${{ inputs.version }}
