@@ -82,6 +82,14 @@ export interface Agent {
   last_seen: string
 }
 
+/** One line the collector process logged. */
+export interface LogLine {
+  at: string
+  severity: 'debug' | 'info' | 'warn' | 'error'
+  message: string
+  attributes?: Record<string, string>
+}
+
 /** One entry in a collector's history. */
 export interface AgentEvent {
   id: number
@@ -365,6 +373,8 @@ export interface NewRollout {
 /** AgentCapabilities bit: the agent accepts remote config from the server. */
 export const CAP_ACCEPTS_REMOTE_CONFIG = 0x2
 /** AgentCapabilities bit: the agent accepts restart commands. */
+/** AgentCapabilities bit: the collector sends its own logs where the server tells it to. */
+export const CAP_REPORTS_OWN_LOGS = 0x80
 export const CAP_ACCEPTS_RESTART = 0x400
 
 /** The fleet's counts at one moment, for trend lines. */
@@ -554,6 +564,7 @@ export const api = {
   pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
   agentEvents: (uid: string, before = 0) => request<{ events: AgentEvent[] }>(`/agents/${uid}/events?limit=100${before ? `&before=${before}` : ''}`),
+  agentLogs: (uid: string) => request<{ lines: LogLine[]; kept: number; kept_hours: number }>(`/agents/${uid}/logs`),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>
     request<void>(`/agents/${uid}/config`, { method: 'PUT', body: JSON.stringify({ config_version_id: configVersionId }) }),

@@ -9,6 +9,7 @@ import { AgentStatus, Badge, ConfigStatus, ErrorNote } from '../../components/ui
 import { timeAgo } from '../../lib/time'
 import { AgentActions } from './AgentActions'
 import { AgentActivity } from './AgentActivity'
+import { AgentLogs } from './AgentLogs'
 import { CollectorCharts } from './CollectorCharts'
 import { PushConfig } from './PushConfig'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
@@ -130,6 +131,7 @@ export function AgentDetail() {
             ),
           },
           { value: 'activity', label: 'Activity', content: <AgentActivity uid={a.instance_uid} /> },
+          { value: 'logs', label: 'Logs', content: <AgentLogs agent={a} /> },
         ]}
       />
     </div>
