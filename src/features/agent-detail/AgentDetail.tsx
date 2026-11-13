@@ -6,8 +6,8 @@ import { api, CAP_ACCEPTS_REMOTE_CONFIG } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AgentStatus, Badge, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { CollectorCharts } from './CollectorCharts'
 import { PushConfig } from './PushConfig'
-import { Throughput } from './Throughput'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -71,7 +71,7 @@ export function AgentDetail() {
         </section>
       </div>
 
-      <Throughput agent={a} />
+      <CollectorCharts uid={a.instance_uid} />
 
       <section className="card">
         <h2 className="border-b border-border px-4 py-2 font-medium">Remote config</h2>

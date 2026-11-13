@@ -25,11 +25,20 @@ export interface Agent {
   remote_config_error: string | null
   desired_config_version_id: string | null
   desired_config: DesiredConfig | null
-  /** Latest pipeline rates in records per second, by direction then signal. Only on agent detail; null if not reported. */
-  throughput?: { at: string; rates: Record<string, Record<string, number>> } | null
   connected: boolean
   first_seen: string
   last_seen: string
+}
+
+/** One sample of a collector's own CPU, memory and throughput, about a minute apart. */
+export interface MetricPoint {
+  at: string
+  cpu_pct: number | null
+  rss_bytes: number | null
+  heap_bytes: number | null
+  received: number
+  sent: number
+  failed: number
 }
 
 export interface DesiredConfig {
@@ -361,6 +370,7 @@ export const api = {
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
+  agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>
     request<void>(`/agents/${uid}/config`, { method: 'PUT', body: JSON.stringify({ config_version_id: configVersionId }) }),
   configs: () => request<{ configs: ConfigTemplate[] }>('/configs'),
