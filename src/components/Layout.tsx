@@ -214,9 +214,20 @@ export function Layout() {
           className={clsx('flex shrink-0 flex-col border-r border-border bg-sidebar p-3 transition-[width] duration-150', collapsed ? 'w-14' : 'w-56')}
           aria-label="Main navigation"
         >
-          <div className={clsx('flex items-center pb-5 pt-1', collapsed ? 'justify-center' : 'gap-2.5 px-1.5')}>
+          <div className={clsx('flex items-center pt-1', collapsed ? 'flex-col gap-3 pb-3' : 'gap-2.5 pb-5 pl-1.5')}>
             <LogoMark />
             {!collapsed && <Wordmark />}
+            <Tip label="Expand sidebar" show={collapsed}>
+              <button
+                className={clsx('flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg', !collapsed && 'ml-auto')}
+                onClick={toggle}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={collapsed ? undefined : 'Collapse sidebar'}
+              >
+                {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+              </button>
+            </Tip>
           </div>
           <Tip label="Search (/)" show={collapsed}>
             <button
@@ -249,26 +260,13 @@ export function Layout() {
             {can('admin') && <AdminNav collapsed={collapsed} />}
           </nav>
           {!collapsed && (
-            <div className="pb-3">
-              <ThemeSwitch />
-            </div>
-          )}
-          {!collapsed && (
-            <button className="mb-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted hover:bg-hover hover:text-fg" onClick={openHelp}>
+            <button className="mb-2 flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted hover:bg-hover hover:text-fg" onClick={openHelp}>
               <Keyboard size={15} /> Keyboard shortcuts
             </button>
           )}
-          <Tip label="Expand sidebar" show={collapsed}>
-            <button
-              className={clsx('mb-3 flex h-8 items-center gap-2 rounded-md text-xs text-muted hover:bg-hover hover:text-fg', collapsed ? 'justify-center' : 'px-2.5')}
-              onClick={toggle}
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-              {!collapsed && 'Collapse'}
-            </button>
-          </Tip>
+          <div className="pb-3">
+            <ThemeSwitch compact={collapsed} />
+          </div>
           <div className={clsx('flex items-center border-t border-border pt-3 text-xs', collapsed ? 'flex-col gap-2' : 'justify-between px-1.5')}>
             <Tip label={`${user?.subject} (${roleText})`} show={collapsed}>
               <div className="flex min-w-0 items-center gap-2">
