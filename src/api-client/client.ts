@@ -25,6 +25,8 @@ export interface Agent {
   remote_config_error: string | null
   desired_config_version_id: string | null
   desired_config: DesiredConfig | null
+  /** Collection is stopped: the collector runs an empty pipeline until resumed. */
+  paused: boolean
   connected: boolean
   first_seen: string
   last_seen: string
@@ -375,6 +377,7 @@ export const api = {
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
+  pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>

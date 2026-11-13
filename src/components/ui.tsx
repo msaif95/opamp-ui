@@ -14,8 +14,9 @@ export function Badge({ tone, children }: { tone: keyof typeof tones; children: 
   return <span className={clsx('badge', tones[tone])}>{children}</span>
 }
 
-export function AgentStatus({ agent }: { agent: Pick<Agent, 'connected' | 'healthy'> }) {
+export function AgentStatus({ agent }: { agent: Pick<Agent, 'connected' | 'healthy' | 'paused'> }) {
   if (!agent.connected) return <Badge tone="neutral">Offline</Badge>
+  if (agent.paused) return <Badge tone="warning">Paused</Badge>
   if (agent.healthy === false) return <Badge tone="danger">Unhealthy</Badge>
   if (agent.healthy === null) return <Badge tone="info">Connected</Badge>
   return <Badge tone="success">Healthy</Badge>
