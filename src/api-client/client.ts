@@ -92,6 +92,18 @@ export interface BuilderType {
 export interface BuilderComponent {
   type: string
   params: Record<string, BuilderValue>
+  /** ID of a saved library item whose type and settings are used instead of the two fields above. */
+  library?: string
+}
+
+export interface LibraryItem {
+  id: string
+  kind: BuilderKind
+  name: string
+  type: string
+  params: Record<string, BuilderValue>
+  created_by: string
+  updated_at: string
 }
 
 export interface BuilderSpec {
@@ -359,6 +371,13 @@ export const api = {
     }),
   addConfigVersion: (id: string, body: string, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ body, description }) }),
+  library: () => request<{ items: LibraryItem[] }>('/configs/builder/library'),
+  saveLibraryItem: (item: { id?: string; kind: BuilderKind; name: string; type: string; params: Record<string, BuilderValue> }) =>
+    request<LibraryItem>(`/configs/builder/library${item.id ? `/${item.id}` : ''}`, {
+      method: item.id ? 'PUT' : 'POST',
+      body: JSON.stringify(item),
+    }),
+  deleteLibraryItem: (id: string) => request<void>(`/configs/builder/library/${id}`, { method: 'DELETE' }),
   builderCatalog: () => request<{ types: BuilderType[] }>('/configs/builder/catalog'),
   builderRender: (spec: BuilderSpec) =>
     request<{ body: string; issues: Issue[] }>('/configs/builder/render', { method: 'POST', body: JSON.stringify(spec) }),

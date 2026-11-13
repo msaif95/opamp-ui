@@ -7,6 +7,7 @@ import { api, ApiError, type BuilderComponent, type BuilderKind, type BuilderSpe
 import { ErrorNote } from '../../components/ui'
 import { IssueList } from '../config-editor/parts'
 import { ComponentForm } from './ComponentForm'
+import { LibraryItemEditor } from './LibraryItemEditor'
 
 const EMPTY: BuilderSpec = { sources: [], processors: [], destinations: [] }
 
@@ -42,6 +43,20 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
   const catalog = useQuery({ queryKey: ['builder-catalog'], queryFn: api.builderCatalog, staleTime: Infinity })
   const types = catalog.data?.types ?? []
   const typeOf = (kind: BuilderKind, type: string) => types.find((t) => t.kind === kind && t.type === type)
+  const library = useQuery({ queryKey: ['builder-library'], queryFn: api.library })
+  const items = library.data?.items ?? []
+  const saveToLibrary = useMutation({
+    mutationFn: (v: { kind: BuilderKind; key: keyof BuilderSpec; index: number; name: string; c: BuilderComponent }) =>
+      api.saveLibraryItem({ kind: v.kind, name: v.name, type: v.c.type, params: v.c.params }),
+    onSuccess: async (item, v) => {
+      await qc.invalidateQueries({ queryKey: ['builder-library'] })
+      // The pipeline now refers to the saved item instead of holding its own copy.
+      update(
+        v.key,
+        spec[v.key].map((x, j) => (j === v.index ? { type: item.type, params: {}, library: item.id } : x)),
+      )
+    },
+  })
 
   const empty = spec.sources.length + spec.processors.length + spec.destinations.length === 0
   const preview = useQuery({
@@ -64,8 +79,10 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
   })
 
   const update = (key: keyof BuilderSpec, list: BuilderComponent[]) => setSpec({ ...spec, [key]: list })
-  const add = (key: keyof BuilderSpec, type: string) => {
-    update(key, [...spec[key], { type, params: {} }])
+  const add = (key: keyof BuilderSpec, choice: string) => {
+    const [from, value] = [choice.slice(0, 4), choice.slice(5)]
+    const item = items.find((it) => it.id === value)
+    update(key, [...spec[key], from === 'item' && item ? { type: item.type, params: {}, library: item.id } : { type: value, params: {} }])
     setOpen({ key, index: spec[key].length })
   }
   const remove = (key: keyof BuilderSpec, index: number) => {
@@ -105,14 +122,19 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
             </div>
             <ul>
               {spec[col.key].map((c, i) => {
-                const type = typeOf(col.kind, c.type)
+                const item = c.library ? items.find((it) => it.id === c.library) : undefined
+                const type = typeOf(col.kind, item?.type ?? c.type)
+                const shown = item ? { type: item.type, params: item.params } : c
                 const isOpen = open?.key === col.key && open.index === i
                 return (
                   <li key={i} className={clsx('border-b border-border', isOpen && 'bg-panel-2')}>
                     <div className="flex items-start gap-2 px-4 py-2">
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setOpen(isOpen ? null : { key: col.key, index: i })}>
-                        <div className="font-medium">{type?.label ?? c.type}</div>
-                        <div className="truncate text-xs text-muted">{summary(c, type) || type?.signals.join(', ')}</div>
+                        <div className="font-medium">
+                          {item ? item.name : (type?.label ?? c.type)}
+                          {c.library && <span className="ml-2 text-xs font-normal text-accent">{item ? `library · ${type?.label}` : 'missing library item'}</span>}
+                        </div>
+                        <div className="truncate text-xs text-muted">{summary(shown, type) || type?.signals.join(', ')}</div>
                       </button>
                       {col.key === 'processors' && (
                         <>
@@ -133,7 +155,20 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    {isOpen && type && (
+                    {isOpen && type && item && (
+                      <LibraryItemEditor
+                        key={item.id + item.updated_at}
+                        item={item}
+                        type={type}
+                        onDetach={() =>
+                          update(
+                            col.key,
+                            spec[col.key].map((x, j) => (j === i ? { type: item.type, params: item.params } : x)),
+                          )
+                        }
+                      />
+                    )}
+                    {isOpen && type && !c.library && (
                       <div className="space-y-3 px-4 pb-3">
                         <p className="text-xs text-muted">{type.description}</p>
                         <ComponentForm
@@ -146,6 +181,17 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
                             )
                           }
                         />
+                        <button
+                          className="btn btn-sm"
+                          disabled={saveToLibrary.isPending}
+                          onClick={() => {
+                            const name = prompt(`Save this ${col.kind} to the library as:`)?.trim()
+                            if (name) saveToLibrary.mutate({ kind: col.kind, key: col.key, index: i, name, c })
+                          }}
+                        >
+                          Save to library for reuse
+                        </button>
+                        {saveToLibrary.error && <p className="text-xs text-danger">{saveToLibrary.error.message}</p>}
                       </div>
                     )}
                   </li>
@@ -155,13 +201,26 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
             <div className="p-3">
               <select className="input w-full" value="" onChange={(e) => e.target.value && add(col.key, e.target.value)} aria-label={col.add}>
                 <option value="">+ {col.add}…</option>
-                {types
-                  .filter((t) => t.kind === col.kind)
-                  .map((t) => (
-                    <option key={t.type} value={t.type}>
-                      {t.label} ({t.signals.join(', ')})
-                    </option>
-                  ))}
+                {items.some((it) => it.kind === col.kind) && (
+                  <optgroup label="From the library">
+                    {items
+                      .filter((it) => it.kind === col.kind)
+                      .map((it) => (
+                        <option key={it.id} value={`item:${it.id}`}>
+                          {it.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                <optgroup label="New">
+                  {types
+                    .filter((t) => t.kind === col.kind)
+                    .map((t) => (
+                      <option key={t.type} value={`type:${t.type}`}>
+                        {t.label} ({t.signals.join(', ')})
+                      </option>
+                    ))}
+                </optgroup>
               </select>
             </div>
           </section>
