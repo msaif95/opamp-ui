@@ -24,6 +24,8 @@ with its own theme.
 - Dropdowns and dialogs: never use the browser's `<select>`, `confirm()` or `prompt()`. Use `components/Select`
   (Radix select; `''` is a valid option value), `confirmDialog` / `promptDialog` from `lib/dialog` (rendered by
   `<DialogHost />` in `App.tsx`), and `components/Dialogs` `Modal` for small forms. Tooltips use Radix tooltip.
-- Sidebar (`components/Layout.tsx`) collapses to icons; the choice is kept in `localStorage`. Add pages to its `NAV` list.
+- Sidebar (`components/Layout.tsx`) collapses to icons; the choice is kept in `localStorage`. Everyday pages go in
+  `NAV`, administrator pages in `ADMIN_NAV` (the click-to-expand Admin group; a click menu when collapsed). Use
+  `Link` with a string `className` there, not `NavLink` with a function: Radix `asChild` stringifies the function.
 - Project access in the UI: `useAuth().canIn(projectId, role)` for a resource, `can(role)` for "anywhere",
   `components/ProjectSelect` for create forms. The Users page (`features/users`) lists people and their projects.

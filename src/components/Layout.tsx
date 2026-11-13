@@ -1,9 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Activity, FileCode, FolderKanban, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Server, Tags, Users, type LucideIcon } from 'lucide-react'
+import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Server, ShieldCheck, Tags, Users, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
 import { useAuth } from '../auth/AuthProvider'
 import { LogoMark, ThemeSwitch, Wordmark } from './Brand'
@@ -35,17 +36,126 @@ function useLiveAgentUpdates() {
 
 const COLLAPSED_KEY = 'opamp.sidebar.collapsed'
 
-const NAV: { to: string; label: string; icon: LucideIcon; admin?: boolean }[] = [
+const ADMIN_OPEN_KEY = 'opamp.sidebar.admin-open'
+
+interface NavItem {
+  to: string
+  label: string
+  icon: LucideIcon
+}
+
+const NAV: NavItem[] = [
   { to: '/agents', label: 'Fleet', icon: Server },
   { to: '/configs', label: 'Configs', icon: FileCode },
   { to: '/groups', label: 'Groups', icon: Tags },
   { to: '/rollouts', label: 'Bulk push', icon: Rocket },
-  { to: '/projects', label: 'Projects', icon: FolderKanban, admin: true },
-  { to: '/users', label: 'Users', icon: Users, admin: true },
-  { to: '/credentials', label: 'Agent credentials', icon: KeyRound, admin: true },
-  { to: '/audit', label: 'Audit log', icon: ScrollText, admin: true },
-  { to: '/system', label: 'System', icon: Activity, admin: true },
 ]
+
+/** Administrator pages, grouped under one "Admin" entry. */
+const ADMIN_NAV: NavItem[] = [
+  { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/users', label: 'Users', icon: Users },
+  { to: '/credentials', label: 'Agent credentials', icon: KeyRound },
+  { to: '/audit', label: 'Audit log', icon: ScrollText },
+  { to: '/system', label: 'System', icon: Activity },
+]
+
+const itemClass = (active: boolean, collapsed: boolean) =>
+  clsx(
+    'relative flex h-8 w-full items-center gap-2 rounded-md',
+    collapsed ? 'justify-center px-0' : 'px-2.5',
+    active
+      ? 'bg-accent-soft font-medium text-accent before:absolute before:inset-y-1.5 before:-left-3 before:w-[3px] before:rounded-r before:bg-accent'
+      : 'text-muted hover:bg-hover hover:text-fg',
+  )
+
+/** Whether a nav target is the current page or a page beneath it. */
+const useActive = () => {
+  const { pathname } = useLocation()
+  return (to: string) => pathname === to || pathname.startsWith(to + '/')
+}
+
+/**
+ * The Admin group. In the full sidebar it expands and collapses in place on click, and opens by itself while one
+ * of its pages is showing so the current page stays visible. In the icon-only sidebar there is no room to expand,
+ * so it is a single icon that opens a menu on click.
+ */
+function AdminNav({ collapsed }: { collapsed: boolean }) {
+  const active = useActive()
+  const onAdminPage = ADMIN_NAV.some((n) => active(n.to))
+  const [open, setOpen] = useState(() => localStorage.getItem(ADMIN_OPEN_KEY) === '1')
+  const toggle = () => {
+    localStorage.setItem(ADMIN_OPEN_KEY, open ? '0' : '1')
+    setOpen(!open)
+  }
+  // Being on an admin page shows the group without changing what the user chose for other pages.
+  const expanded = open || onAdminPage
+
+  if (collapsed) {
+    return (
+      <DropdownMenu.Root>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <DropdownMenu.Trigger className={itemClass(onAdminPage, true)} aria-label="Admin">
+              <ShieldCheck size={15} className="shrink-0" />
+            </DropdownMenu.Trigger>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content side="right" sideOffset={8} className="z-50 rounded bg-fg px-2 py-1 text-xs text-bg shadow">
+              Admin
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content side="right" align="start" sideOffset={8} className="z-50 min-w-48 rounded-md border border-border bg-panel p-1 shadow-lg">
+            <DropdownMenu.Label className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-faint">Admin</DropdownMenu.Label>
+            {ADMIN_NAV.map(({ to, label, icon: Icon }) => (
+              <DropdownMenu.Item key={to} asChild>
+                <Link
+                  to={to}
+                  aria-current={active(to) ? 'page' : undefined}
+                  className={clsx(
+                    'flex cursor-default select-none items-center gap-2 rounded px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-accent-soft data-[highlighted]:text-accent',
+                    active(to) ? 'font-medium text-accent' : 'text-fg',
+                  )}
+                >
+                  <Icon size={14} className="shrink-0" /> {label}
+                </Link>
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    )
+  }
+
+  return (
+    <div>
+      <button
+        className={clsx(itemClass(false, false), onAdminPage && !expanded && 'text-accent')}
+        onClick={toggle}
+        aria-expanded={expanded}
+        aria-controls="admin-nav"
+        // While on an admin page the group stays open, so the button cannot close it.
+        disabled={onAdminPage}
+      >
+        <ShieldCheck size={15} className="shrink-0" />
+        <span className="flex-1 truncate text-left">Admin</span>
+        <ChevronRight size={14} className={clsx('shrink-0 transition-transform duration-150', expanded && 'rotate-90')} />
+      </button>
+      {expanded && (
+        <div id="admin-nav" className="ml-[17px] mt-1 space-y-1 border-l border-border pl-2">
+          {ADMIN_NAV.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} className={itemClass(active(to), false)} aria-current={active(to) ? 'page' : undefined}>
+              <Icon size={14} className="shrink-0" />
+              <span className="truncate">{label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Shows a label beside an icon-only control; only used while the sidebar is collapsed. */
 function Tip({ label, show, children }: { label: string; show: boolean; children: ReactNode }) {
@@ -72,14 +182,7 @@ export function Layout() {
   }
   const roleText = user?.admin ? 'Admin' : user?.role || `${user?.projects.length ?? 0} project${user?.projects.length === 1 ? '' : 's'}`
 
-  const link = ({ isActive }: { isActive: boolean }) =>
-    clsx(
-      'relative flex h-8 items-center gap-2 rounded-md',
-      collapsed ? 'justify-center px-0' : 'px-2.5',
-      isActive
-        ? 'bg-accent-soft font-medium text-accent before:absolute before:inset-y-1.5 before:-left-3 before:w-[3px] before:rounded-r before:bg-accent'
-        : 'text-muted hover:bg-hover hover:text-fg',
-    )
+  const active = useActive()
 
   return (
     <Tooltip.Provider delayDuration={200}>
@@ -92,15 +195,16 @@ export function Layout() {
             <LogoMark />
             {!collapsed && <Wordmark />}
           </div>
-          <nav className="flex-1 space-y-1">
-            {NAV.filter((n) => !n.admin || can('admin')).map(({ to, label, icon: Icon }) => (
+          <nav className="flex-1 space-y-1 overflow-y-auto">
+            {NAV.map(({ to, label, icon: Icon }) => (
               <Tip key={to} label={label} show={collapsed}>
-                <NavLink to={to} className={link} aria-label={label}>
+                <Link to={to} className={itemClass(active(to), collapsed)} aria-label={label} aria-current={active(to) ? 'page' : undefined}>
                   <Icon size={15} className="shrink-0" />
                   {!collapsed && <span className="truncate">{label}</span>}
-                </NavLink>
+                </Link>
               </Tip>
             ))}
+            {can('admin') && <AdminNav collapsed={collapsed} />}
           </nav>
           {!collapsed && (
             <div className="pb-3">
