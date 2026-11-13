@@ -44,11 +44,13 @@ export function FleetDashboard() {
   const [sort, setSort] = useState<AgentQuery['sort']>('name')
   const [order, setOrder] = useState<AgentQuery['order']>('asc')
   const [attrs, setAttrs] = useState<Record<string, string>>({})
+  const [groupId, setGroupId] = useState('')
+  const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
   const [filterText, setFilterText] = useState('')
   const [filterError, setFilterError] = useState(false)
 
   const summary = useQuery({ queryKey: ['summary'], queryFn: api.summary, refetchInterval: BACKGROUND_REFRESH_MS })
-  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, ...views[view].filter }
+  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, ...views[view].filter }
   const agents = useQuery({
     queryKey: ['agents', query],
     queryFn: () => api.agents(query),
@@ -141,6 +143,24 @@ export function FleetDashboard() {
               <X size={12} />
             </button>
           </span>
+        )}
+        {(groups.data?.groups.length ?? 0) > 0 && (
+          <select
+            className="input w-48"
+            value={groupId}
+            onChange={(e) => {
+              setGroupId(e.target.value)
+              setPage(0)
+            }}
+            aria-label="Group"
+          >
+            <option value="">All groups</option>
+            {groups.data?.groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
         )}
         <form onSubmit={addFilter}>
           <input

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { FileCode, KeyRound, LogOut, Rocket, ScrollText, Server, Tags } from 'lucide-react'
+import { Activity, FileCode, KeyRound, LogOut, Rocket, ScrollText, Server, Tags } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
@@ -72,6 +72,11 @@ export function Layout() {
           {can('admin') && (
             <NavLink to="/audit" className={link}>
               <ScrollText size={15} /> Audit log
+            </NavLink>
+          )}
+          {can('admin') && (
+            <NavLink to="/system" className={link}>
+              <Activity size={15} /> System
             </NavLink>
           )}
         </nav>

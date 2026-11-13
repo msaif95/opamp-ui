@@ -15,3 +15,5 @@ with its own theme.
   first paint and must stay in sync. Logo, wordmark and theme switch are in `src/components/Brand.tsx`.
 - In dark mode `accent` is light, so text on accent/danger backgrounds must use `text-accent-fg` / `text-danger-fg`,
   not `text-white`.
+- Container: `docker build -t opamp-ui .`; nginx (unprivileged, :8080) serves `dist` and proxies `/api` to
+  `OPAMP_BACKEND_URL`.

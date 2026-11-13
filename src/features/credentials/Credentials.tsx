@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { api, type ApiKey } from '../../api-client/client'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { RevokedCerts } from './RevokedCerts'
 
 function keyState(k: ApiKey) {
   if (k.revoked_at) return <Badge tone="danger">Revoked</Badge>
@@ -97,7 +98,7 @@ export function Credentials() {
                         className="btn btn-sm btn-danger"
                         disabled={revoke.isPending}
                         onClick={() => {
-                          if (confirm(`Revoke "${k.name}"? Agents using it will be rejected on their next connection.`)) revoke.mutate(k.id)
+                          if (confirm(`Revoke "${k.name}"? Agents using it are disconnected within about 30 seconds and cannot reconnect.`)) revoke.mutate(k.id)
                         }}
                       >
                         Revoke
@@ -117,6 +118,8 @@ export function Credentials() {
           </table>
         )}
       </div>
+
+      <RevokedCerts />
     </div>
   )
 }

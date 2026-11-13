@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { api, type Selector } from '../../api-client/client'
+import { api, type Group, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { ErrorNote } from '../../components/ui'
@@ -9,6 +9,8 @@ import { SelectorChips } from '../rollout-console/parts'
 export function Groups() {
   const qc = useQueryClient()
   const { can } = useAuth()
+  // The group being edited; null while creating a new one.
+  const [editing, setEditing] = useState<Group | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [selector, setSelector] = useState<Selector>({})
@@ -22,19 +24,33 @@ export function Groups() {
     placeholderData: keepPreviousData,
   })
   const refresh = () => qc.invalidateQueries({ queryKey: ['groups'] })
-  const create = useMutation({
-    mutationFn: () => api.createGroup(name.trim(), description.trim(), selector),
+
+  const load = (g: Group | null) => {
+    setEditing(g)
+    setName(g?.name ?? '')
+    setDescription(g?.description ?? '')
+    setSelector(g?.selector ?? {})
+  }
+  const save = useMutation({
+    mutationFn: () =>
+      editing
+        ? api.updateGroup(editing.id, name.trim(), description.trim(), selector)
+        : api.createGroup(name.trim(), description.trim(), selector),
     onSuccess: () => {
-      setName('')
-      setDescription('')
-      setSelector({})
+      load(null)
       return refresh()
     },
   })
-  const remove = useMutation({ mutationFn: api.deleteGroup, onSuccess: refresh })
+  const remove = useMutation({
+    mutationFn: api.deleteGroup,
+    onSuccess: (_, id) => {
+      if (editing?.id === id) load(null)
+      return refresh()
+    },
+  })
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    create.mutate()
+    save.mutate()
   }
 
   return (
@@ -61,7 +77,7 @@ export function Groups() {
             </thead>
             <tbody>
               {groups.data?.groups.map((g) => (
-                <tr key={g.id}>
+                <tr key={g.id} className={editing?.id === g.id ? 'bg-selected' : undefined}>
                   <td>
                     <div className="font-medium">{g.name}</div>
                     {g.description && <div className="text-xs text-muted">{g.description}</div>}
@@ -70,17 +86,22 @@ export function Groups() {
                     <SelectorChips selector={g.selector} />
                   </td>
                   <td>{g.members.toLocaleString()}</td>
-                  <td className="text-right">
+                  <td className="space-x-2 text-right whitespace-nowrap">
                     {can('operator') && (
-                      <button
-                        className="btn btn-sm btn-danger"
-                        disabled={remove.isPending}
-                        onClick={() => {
-                          if (confirm(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`)) remove.mutate(g.id)
-                        }}
-                      >
-                        Delete
-                      </button>
+                      <>
+                        <button className="btn btn-sm" onClick={() => load(g)}>
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          disabled={remove.isPending}
+                          onClick={() => {
+                            if (confirm(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`)) remove.mutate(g.id)
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -99,7 +120,12 @@ export function Groups() {
 
       {can('operator') && (
         <form onSubmit={submit} className="card max-w-4xl space-y-4 p-4">
-          <h2 className="font-medium">New group</h2>
+          <h2 className="font-medium">{editing ? `Edit group "${editing.name}"` : 'New group'}</h2>
+          {editing && (
+            <p className="text-xs text-muted">
+              Changing what a group matches affects future bulk pushes only. Pushes already started keep the target they began with.
+            </p>
+          )}
           <div className="flex flex-wrap gap-3">
             <label className="space-y-1">
               <span className="block text-xs text-muted">Name</span>
@@ -120,10 +146,17 @@ export function Groups() {
               'Counting…'
             )}
           </p>
-          {create.error && <p className="text-xs text-danger">{create.error.message}</p>}
-          <button className="btn btn-primary" disabled={!name.trim() || !hasSelector || create.isPending}>
-            Save group
-          </button>
+          {save.error && <p className="text-xs text-danger">{save.error.message}</p>}
+          <div className="flex gap-2">
+            <button className="btn btn-primary" disabled={!name.trim() || !hasSelector || save.isPending}>
+              {editing ? 'Save changes' : 'Save group'}
+            </button>
+            {editing && (
+              <button type="button" className="btn btn-ghost" onClick={() => load(null)}>
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
       )}
     </div>

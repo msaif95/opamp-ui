@@ -101,6 +101,40 @@ export interface AuditEvent {
   details: Record<string, unknown>
 }
 
+export interface SystemStatus {
+  sso: boolean
+  sso_issuer: string
+  local_login: boolean
+  agent_tls: boolean
+  agent_mtls: boolean
+  alert_webhook: boolean
+  telemetry: boolean
+  rebalancing: boolean
+  /** Fleet-health alert limits in percent; 0 means off. */
+  alert_offline_pct: number
+  alert_unhealthy_pct: number
+  agent_offline_after_seconds: number
+}
+
+export interface Replica {
+  id: string
+  connections: number
+  started_at: string
+  updated_at: string
+}
+
+export interface SystemAlert {
+  at: string
+  text: string
+  delivery: 'sent' | 'failed' | 'not_configured'
+}
+
+export interface SystemInfo {
+  status: SystemStatus
+  replicas: Replica[]
+  alerts: SystemAlert[]
+}
+
 export interface AuthConfig {
   local: boolean
   okta: boolean
@@ -178,12 +212,22 @@ export interface ApiKey {
   last_used_at: string | null
 }
 
+export interface RevokedCert {
+  id: string
+  name: string
+  fingerprint_sha256: string
+  subject: string
+  revoked_by: string
+  revoked_at: string
+}
+
 export interface AgentQuery {
   limit: number
   offset: number
   connected?: boolean
   healthy?: boolean
   configStatus?: Agent['remote_config_status']
+  groupId?: string
   sort: 'name' | 'last_seen'
   order: 'asc' | 'desc'
   attrs: Record<string, string>
@@ -236,6 +280,7 @@ export const api = {
     if (q.connected !== undefined) p.set('connected', String(q.connected))
     if (q.healthy !== undefined) p.set('healthy', String(q.healthy))
     if (q.configStatus) p.set('config_status', q.configStatus)
+    if (q.groupId) p.set('group_id', q.groupId)
     for (const [k, v] of Object.entries(q.attrs)) p.append('attr', `${k}=${v}`)
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
@@ -255,10 +300,13 @@ export const api = {
   deleteConfig: (id: string) => request<void>(`/configs/${id}`, { method: 'DELETE' }),
   validateConfig: (body: string) =>
     request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),
+  system: () => request<SystemInfo>('/system'),
   authConfig: () => request<AuthConfig>('/auth/config'),
   groups: () => request<{ groups: Group[] }>('/groups'),
   createGroup: (name: string, description: string, selector: Selector) =>
     request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description, selector }) }),
+  updateGroup: (id: string, name: string, description: string, selector: Selector) =>
+    request<Group>(`/groups/${id}`, { method: 'PUT', body: JSON.stringify({ name, description, selector }) }),
   deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: 'DELETE' }),
   audit: (q: string, before?: number) => {
     const p = new URLSearchParams({ limit: '100', q })
@@ -275,6 +323,9 @@ export const api = {
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
   issueApiKey: (name: string, expiresAt: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),
+  revokedCerts: () => request<{ revoked_certs: RevokedCert[] }>('/credentials/revoked-certs'),
+  revokeCert: (name: string, certificatePem: string) =>
+    request<RevokedCert>('/credentials/revoked-certs', { method: 'POST', body: JSON.stringify({ name, certificate_pem: certificatePem }) }),
   revokeCredential: (id: string) => request<void>(`/credentials/${id}`, { method: 'DELETE' }),
 }
 
