@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
 import { ErrorNote, PageHeader } from '../../components/ui'
@@ -6,6 +6,7 @@ import { ErrorNote, PageHeader } from '../../components/ui'
 const PAGE = 100
 
 export function AuditLog() {
+  const verify = useMutation({ mutationFn: api.verifyAudit })
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
 
@@ -25,14 +26,27 @@ export function AuditLog() {
     <div className="space-y-4">
       <PageHeader
         title="Audit log"
-        description="Every sign-in and every change made through the console, the command-line tool or by the system itself."
+        description="Every sign-in and every change made through the console, the command-line tool or by the system itself. Events cannot be edited or deleted, and each is chained to the one before it so tampering is detectable."
         action={
           <form onSubmit={submit} className="flex gap-2">
             <input className="input w-72" placeholder="Search action, user or target" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Search the audit log" />
             <button className="btn">Search</button>
+            <button type="button" className="btn" disabled={verify.isPending} onClick={() => verify.mutate()}>
+              {verify.isPending ? 'Checking…' : 'Check integrity'}
+            </button>
           </form>
         }
       />
+      {verify.data &&
+        (verify.data.intact ? (
+          <p className="card border-success p-3 text-success">The audit log is intact: no event has been edited, inserted or removed.</p>
+        ) : (
+          <p className="card border-danger p-3 text-danger">
+            The audit log has been tampered with: event {verify.data.first_broken_event_id} does not match the record that was written.
+            Compare with the copy in your log store.
+          </p>
+        ))}
+      {verify.error && <ErrorNote error={verify.error} />}
       <div className="card overflow-auto">
         {log.error ? (
           <ErrorNote error={log.error} />

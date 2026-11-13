@@ -57,6 +57,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [logout])
 
+  // Sign out after a period without keyboard or pointer input. The console refreshes data in the background,
+  // which keeps the server-side session alive, so idleness has to be judged here; the server still ends sessions
+  // whose tab was closed.
+  const idleSeconds = user?.session_idle_seconds ?? 0
+  useEffect(() => {
+    if (idleSeconds <= 0) return
+    let last = Date.now()
+    const active = () => {
+      last = Date.now()
+    }
+    const events = ['pointerdown', 'keydown', 'wheel'] as const
+    events.forEach((e) => window.addEventListener(e, active, { passive: true }))
+    const timer = setInterval(() => {
+      if (Date.now() - last > idleSeconds * 1000) logout()
+    }, 15_000)
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, active))
+      clearInterval(timer)
+    }
+  }, [idleSeconds, logout])
+
   const value = useMemo<AuthState>(
     () => ({
       user,

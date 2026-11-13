@@ -11,6 +11,17 @@ export interface User {
   admin: boolean
   /** Projects this user can see, with their role in each. */
   projects: { id: string; name: string; role: Role }[]
+  /** The console signs the user out after this long without keyboard or pointer input. */
+  session_idle_seconds: number
+}
+
+/** A value kept out of configs and referenced from them as ${secret:NAME}. The value itself is never returned. */
+export interface ConfigSecret {
+  id: string
+  project_id: string | null
+  name: string
+  updated_by: string
+  updated_at: string
 }
 
 export interface Project {
@@ -451,6 +462,11 @@ export const api = {
   },
   projects: () => request<{ projects: Project[] }>('/projects'),
   users: () => request<{ users: Person[] }>('/users'),
+  secrets: () => request<{ secrets: ConfigSecret[]; enabled: boolean }>('/secrets'),
+  setSecret: (name: string, value: string, project_id: string | null) =>
+    request<void>('/secrets', { method: 'PUT', body: JSON.stringify({ name, value, project_id }) }),
+  deleteSecret: (id: string) => request<void>(`/secrets/${id}`, { method: 'DELETE' }),
+  verifyAudit: () => request<{ intact: boolean; first_broken_event_id: number | null }>('/audit/verify'),
   createProject: (name: string, description: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),

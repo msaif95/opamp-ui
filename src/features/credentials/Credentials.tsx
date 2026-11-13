@@ -12,6 +12,7 @@ import { confirmDialog } from '../../lib/dialog'
 import { timeAgo } from '../../lib/time'
 import { ApiTokens } from './ApiTokens'
 import { RevokedCerts } from './RevokedCerts'
+import { Secrets } from './Secrets'
 
 function keyState(k: ApiKey) {
   if (k.revoked_at) return <Badge tone="danger">Revoked</Badge>
@@ -95,10 +96,12 @@ export function Credentials() {
   // The other tabs' lists are fetched here too, so every tab can show how many active entries it holds.
   const certs = useQuery({ queryKey: ['revoked-certs'], queryFn: api.revokedCerts })
   const tokens = useQuery({ queryKey: ['api-tokens'], queryFn: api.apiTokens })
+  const secretList = useQuery({ queryKey: ['secrets'], queryFn: api.secrets })
   const counts: Record<string, number | undefined> = {
     keys: keys.data?.api_keys.filter((k) => !k.revoked_at).length,
     certificates: certs.data?.revoked_certs.length,
     tokens: tokens.data?.tokens.filter((t) => !t.revoked_at).length,
+    secrets: secretList.data?.secrets.length,
   }
   const refresh = () => qc.invalidateQueries({ queryKey: ['api-keys'] })
   const revoke = useMutation({ mutationFn: api.revokeCredential, onSuccess: refresh })
@@ -109,7 +112,7 @@ export function Credentials() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Agent credentials" description="How collectors and automation prove who they are, and how to cut one off." />
+      <PageHeader title="Agent credentials" description="How collectors and automation prove who they are, how to cut one off, and the secrets configs refer to." />
 
       <Tabs
         label="Kinds of credential"
@@ -208,6 +211,7 @@ export function Credentials() {
           },
           { value: 'certificates', label: 'Revoked certificates', count: counts.certificates, content: <RevokedCerts /> },
           { value: 'tokens', label: 'Console API tokens', count: counts.tokens, content: <ApiTokens /> },
+          { value: 'secrets', label: 'Config secrets', count: counts.secrets, content: <Secrets /> },
         ]}
       />
 
