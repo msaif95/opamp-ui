@@ -52,3 +52,5 @@ with its own theme.
   changing them. Table header cells need text (use `sr-only`), charts inside links need `accessibilityLayer={false}`.
 - The event stream is closed on `pagehide`: browsers allow six connections per host, and pages kept in the
   back/forward cache otherwise hold theirs until new pages hang.
+- Collector page tabs: Overview, Activity, Metrics (`AgentMetrics`: headline charts + one chart per reported metric),
+  Logs, Traces. Each explains how to enable reporting when the collector lacks the capability bit.

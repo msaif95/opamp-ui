@@ -10,7 +10,8 @@ import { timeAgo } from '../../lib/time'
 import { AgentActions } from './AgentActions'
 import { AgentActivity } from './AgentActivity'
 import { AgentLogs } from './AgentLogs'
-import { CollectorCharts } from './CollectorCharts'
+import { AgentMetrics } from './AgentMetrics'
+import { AgentTraces } from './AgentTraces'
 import { PushConfig } from './PushConfig'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
 
@@ -90,8 +91,6 @@ export function AgentDetail() {
               </section>
             </div>
 
-            <CollectorCharts uid={a.instance_uid} />
-
             <section className="card">
               <h2 className="border-b border-border px-4 py-2 font-medium">Remote config</h2>
               <dl>
@@ -131,7 +130,9 @@ export function AgentDetail() {
             ),
           },
           { value: 'activity', label: 'Activity', content: <AgentActivity uid={a.instance_uid} /> },
+          { value: 'metrics', label: 'Metrics', content: <AgentMetrics agent={a} /> },
           { value: 'logs', label: 'Logs', content: <AgentLogs agent={a} /> },
+          { value: 'traces', label: 'Traces', content: <AgentTraces agent={a} /> },
         ]}
       />
     </div>

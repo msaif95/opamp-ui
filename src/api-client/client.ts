@@ -82,6 +82,32 @@ export interface Agent {
   last_seen: string
 }
 
+/** One line on a metric chart: a metric the collector reports about itself, for one set of attribute values. */
+export interface MetricSeries {
+  id: string
+  name: string
+  attributes?: Record<string, string>
+  unit?: string
+  description?: string
+  /** gauge: as reported; rate: a counter's increase per second; average: a histogram's mean per report. */
+  kind: 'gauge' | 'rate' | 'average'
+}
+
+/** One span the collector recorded about its own work. */
+export interface TraceSpan {
+  trace_id: string
+  span_id: string
+  parent_id?: string
+  name: string
+  scope?: string
+  kind?: string
+  start: string
+  duration_ms: number
+  status: 'ok' | 'error' | 'unset'
+  status_message?: string
+  attributes?: Record<string, string>
+}
+
 /** One line the collector process logged. */
 export interface LogLine {
   at: string
@@ -375,6 +401,9 @@ export const CAP_ACCEPTS_REMOTE_CONFIG = 0x2
 /** AgentCapabilities bit: the agent accepts restart commands. */
 /** AgentCapabilities bit: the collector sends its own logs where the server tells it to. */
 export const CAP_REPORTS_OWN_LOGS = 0x80
+/** AgentCapabilities bits: the collector sends its own traces / metrics where the server tells it to. */
+export const CAP_REPORTS_OWN_TRACES = 0x20
+export const CAP_REPORTS_OWN_METRICS = 0x40
 export const CAP_ACCEPTS_RESTART = 0x400
 
 /** The fleet's counts at one moment, for trend lines. */
@@ -564,6 +593,9 @@ export const api = {
   pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
   agentEvents: (uid: string, before = 0) => request<{ events: AgentEvent[] }>(`/agents/${uid}/events?limit=100${before ? `&before=${before}` : ''}`),
+  agentAllMetrics: (uid: string) =>
+    request<{ series: MetricSeries[]; samples: { at: string; values: Record<string, number> }[]; max_series: number }>(`/agents/${uid}/metrics/all`),
+  agentTraces: (uid: string) => request<{ spans: TraceSpan[]; kept: number; kept_hours: number }>(`/agents/${uid}/traces`),
   agentLogs: (uid: string) => request<{ lines: LogLine[]; kept: number; kept_hours: number }>(`/agents/${uid}/logs`),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>
