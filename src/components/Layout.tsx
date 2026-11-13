@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Activity, FileCode, KeyRound, LogOut, Rocket, ScrollText, Server, Tags } from 'lucide-react'
+import { Activity, FileCode, FolderKanban, KeyRound, LogOut, Rocket, ScrollText, Server, Tags } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
@@ -65,6 +65,11 @@ export function Layout() {
             <Rocket size={15} /> Bulk push
           </NavLink>
           {can('admin') && (
+            <NavLink to="/projects" className={link}>
+              <FolderKanban size={15} /> Projects
+            </NavLink>
+          )}
+          {can('admin') && (
             <NavLink to="/credentials" className={link}>
               <KeyRound size={15} /> Agent credentials
             </NavLink>
@@ -90,7 +95,9 @@ export function Layout() {
             </span>
             <div className="min-w-0">
               <div className="truncate font-medium">{user?.subject}</div>
-              <div className="text-muted capitalize">{user?.role}</div>
+              <div className="text-muted capitalize">
+                {user?.admin ? 'Admin' : user?.role || `${user?.projects.length ?? 0} project${user?.projects.length === 1 ? '' : 's'}`}
+              </div>
             </div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={logout} title="Sign out">

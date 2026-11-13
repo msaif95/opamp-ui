@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api, type Role } from '../../api-client/client'
+import { ProjectName, ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 
@@ -10,10 +11,12 @@ export function ApiTokens() {
   const [name, setName] = useState('')
   const [role, setRole] = useState<Role>('operator')
   const [expiresDays, setExpiresDays] = useState('90')
+  const [project, setProject] = useState<string | null | undefined>(undefined)
+  const hasProjects = useHasProjects()
   const tokens = useQuery({ queryKey: ['api-tokens'], queryFn: api.apiTokens })
   const refresh = () => qc.invalidateQueries({ queryKey: ['api-tokens'] })
   const create = useMutation({
-    mutationFn: () => api.createApiToken(name.trim(), role, Number(expiresDays)),
+    mutationFn: () => api.createApiToken(name.trim(), role, Number(expiresDays), role === 'admin' ? null : (project ?? null)),
     onSuccess: () => {
       setName('')
       return refresh()
@@ -48,6 +51,7 @@ export function ApiTokens() {
             <option value="admin">Admin</option>
           </select>
         </label>
+        {role !== 'admin' && <ProjectSelect value={project} onChange={setProject} role="admin" label="Acts in project" />}
         <label className="space-y-1">
           <span className="block text-xs text-muted">Expires in (days, 0 = never)</span>
           <input className="input w-40" type="number" min={0} value={expiresDays} onChange={(e) => setExpiresDays(e.target.value)} />
@@ -77,6 +81,7 @@ export function ApiTokens() {
               <tr>
                 <th>Name</th>
                 <th>Role</th>
+                {hasProjects && <th>Project</th>}
                 <th>Status</th>
                 <th>Last used</th>
                 <th>Created by</th>
@@ -91,6 +96,7 @@ export function ApiTokens() {
                   <tr key={t.id}>
                     <td className="font-medium">{t.name}</td>
                     <td className="capitalize">{t.role}</td>
+                    {hasProjects && <td>{t.role === 'admin' ? 'All' : <ProjectName id={t.project_id} />}</td>}
                     <td>
                       {t.revoked_at ? (
                         <Badge tone="neutral">Revoked</Badge>
@@ -123,7 +129,7 @@ export function ApiTokens() {
               })}
               {tokens.data?.tokens.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-muted">
+                  <td colSpan={7} className="py-6 text-center text-muted">
                     No API tokens.
                   </td>
                 </tr>

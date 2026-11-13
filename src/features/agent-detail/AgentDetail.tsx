@@ -21,7 +21,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 export function AgentDetail() {
   const { uid = '' } = useParams()
-  const { can } = useAuth()
+  const { canIn } = useAuth()
   const { data: a, error, isLoading } = useQuery({ queryKey: ['agents', uid], queryFn: () => api.agent(uid), refetchInterval: 30_000 })
 
   if (isLoading) return <p className="text-muted">Loading…</p>
@@ -37,7 +37,7 @@ export function AgentDetail() {
           <h1 className="text-lg font-semibold">{a.attributes['host.name'] ?? a.instance_uid}</h1>
           <AgentStatus agent={a} />
         </div>
-        {can('operator') && <AgentActions agent={a} />}
+        {canIn(a.project_id, 'operator') && <AgentActions agent={a} />}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -100,7 +100,7 @@ export function AgentDetail() {
         {(a.capabilities & CAP_ACCEPTS_REMOTE_CONFIG) === 0 ? (
           <p className="border-t border-border px-4 py-3 text-muted">This agent does not accept remote config.</p>
         ) : (
-          can('operator') && <PushConfig key={a.desired_config?.version_id ?? 'none'} agent={a} />
+          canIn(a.project_id, 'operator') && <PushConfig key={a.desired_config?.version_id ?? 'none'} agent={a} />
         )}
       </section>
 

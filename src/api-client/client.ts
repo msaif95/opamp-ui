@@ -4,11 +4,39 @@ export type Role = 'admin' | 'operator' | 'viewer'
 
 export interface User {
   subject: string
-  provider: 'okta' | 'local'
+  provider: 'okta' | 'local' | 'token'
+  /** Global role: applies to resources outside any project. Empty for someone who only has project memberships. */
+  role: Role | ''
+  /** Global administrators can see and change everything. */
+  admin: boolean
+  /** Projects this user can see, with their role in each. */
+  projects: { id: string; name: string; role: Role }[]
+}
+
+export interface Project {
+  id: string
+  name: string
+  description: string
+  created_by: string
+  created_at: string
+  members: number
+  agents: number
+}
+
+export interface ProjectMember {
+  subject: string
   role: Role
+  added_by: string
+  added_at: string
+}
+
+/** Every owned resource carries the project it belongs to; null means it is outside any project. */
+export interface Owned {
+  project_id: string | null
 }
 
 export interface Agent {
+  project_id: string | null
   instance_uid: string
   connector_type: 'supervisor' | 'extension' | 'k8s_bridge'
   auth_mode: 'mtls' | 'api_key'
@@ -45,6 +73,7 @@ export interface MetricPoint {
 
 /** A long-lived token for the CLI and automation. */
 export interface ApiToken {
+  project_id: string | null
   id: string
   name: string
   role: Role
@@ -66,6 +95,7 @@ export interface DesiredConfig {
 }
 
 export interface ConfigTemplate {
+  project_id: string | null
   id: string
   name: string
   description: string
@@ -124,6 +154,7 @@ export interface BuilderComponent {
 }
 
 export interface LibraryItem {
+  project_id: string | null
   id: string
   kind: BuilderKind
   name: string
@@ -156,6 +187,7 @@ export type RolloutStatus = 'pending' | 'running' | 'paused' | 'completed' | 'fa
 export type RolloutAgentStatus = 'pending' | 'offered' | 'applying' | 'applied' | 'failed' | 'skipped' | 'rolled_back'
 
 export interface Group {
+  project_id: string | null
   id: string
   name: string
   description: string
@@ -242,6 +274,7 @@ export interface AuthConfig {
 }
 
 export interface Rollout {
+  project_id: string | null
   id: string
   config_version_id: string
   config_id: string
@@ -292,6 +325,8 @@ export interface NewRollout {
   max_failure_pct: number
   auto_rollback: boolean
   manual_approval: boolean
+  /** Project whose collectors are targeted; null for collectors outside any project. A group's project wins. */
+  project_id: string | null
 }
 
 /** AgentCapabilities bit: the agent accepts remote config from the server. */
@@ -308,6 +343,7 @@ export interface Summary {
 }
 
 export interface ApiKey {
+  project_id: string | null
   id: string
   name: string
   secret?: string
@@ -334,6 +370,8 @@ export interface AgentQuery {
   healthy?: boolean
   configStatus?: Agent['remote_config_status']
   groupId?: string
+  /** A project ID, or 'none' for collectors outside any project. */
+  project?: string
   sort: 'name' | 'last_seen'
   order: 'asc' | 'desc'
   attrs: Record<string, string>
@@ -378,15 +416,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (username: string, password: string) =>
-    request<{ token: string; user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+    request<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request<User>('/auth/me'),
-  summary: () => request<Summary>('/summary'),
+  summary: (project?: string) => request<Summary>(`/summary${project ? `?project_id=${project}` : ''}`),
+  projects: () => request<{ projects: Project[] }>('/projects'),
+  createProject: (name: string, description: string) =>
+    request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
+  deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
+  projectMembers: (id: string) => request<{ members: ProjectMember[] }>(`/projects/${id}/members`),
+  setProjectMember: (id: string, subject: string, role: Role) =>
+    request<void>(`/projects/${id}/members`, { method: 'PUT', body: JSON.stringify({ subject, role }) }),
+  removeProjectMember: (id: string, subject: string) =>
+    request<void>(`/projects/${id}/members/${encodeURIComponent(subject)}`, { method: 'DELETE' }),
+  setApiKeyProject: (id: string, project_id: string | null) =>
+    request<{ agents_moved: number }>(`/credentials/api-keys/${id}/project`, { method: 'PUT', body: JSON.stringify({ project_id }) }),
   agents: (q: AgentQuery) => {
     const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset), sort: q.sort, order: q.order })
     if (q.connected !== undefined) p.set('connected', String(q.connected))
     if (q.healthy !== undefined) p.set('healthy', String(q.healthy))
     if (q.configStatus) p.set('config_status', q.configStatus)
     if (q.groupId) p.set('group_id', q.groupId)
+    if (q.project) p.set('project_id', q.project)
     for (const [k, v] of Object.entries(q.attrs)) p.append('attr', `${k}=${v}`)
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },
@@ -399,15 +449,15 @@ export const api = {
   configs: () => request<{ configs: ConfigTemplate[] }>('/configs'),
   config: (id: string) => request<{ config: ConfigTemplate; versions: ConfigVersion[] }>(`/configs/${id}`),
   configVersion: (id: string, version: number) => request<ConfigVersion>(`/configs/${id}/versions/${version}`),
-  createConfig: (name: string, description: string, body: string) =>
+  createConfig: (name: string, description: string, body: string, project_id: string | null) =>
     request<{ config: ConfigTemplate; version: ConfigVersion }>('/configs', {
       method: 'POST',
-      body: JSON.stringify({ name, description, body }),
+      body: JSON.stringify({ name, description, body, project_id }),
     }),
   addConfigVersion: (id: string, body: string, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ body, description }) }),
   library: () => request<{ items: LibraryItem[] }>('/configs/builder/library'),
-  saveLibraryItem: (item: { id?: string; kind: BuilderKind; name: string; type: string; params: Record<string, BuilderValue> }) =>
+  saveLibraryItem: (item: { id?: string; kind: BuilderKind; name: string; type: string; params: Record<string, BuilderValue>; project_id?: string | null }) =>
     request<LibraryItem>(`/configs/builder/library${item.id ? `/${item.id}` : ''}`, {
       method: item.id ? 'PUT' : 'POST',
       body: JSON.stringify(item),
@@ -416,10 +466,10 @@ export const api = {
   builderCatalog: () => request<{ types: BuilderType[] }>('/configs/builder/catalog'),
   builderRender: (spec: BuilderSpec) =>
     request<{ body: string; issues: Issue[] }>('/configs/builder/render', { method: 'POST', body: JSON.stringify(spec) }),
-  createBuiltConfig: (name: string, description: string, builder: BuilderSpec) =>
+  createBuiltConfig: (name: string, description: string, builder: BuilderSpec, project_id: string | null) =>
     request<{ config: ConfigTemplate; version: ConfigVersion }>('/configs', {
       method: 'POST',
-      body: JSON.stringify({ name, description, builder }),
+      body: JSON.stringify({ name, description, builder, project_id }),
     }),
   addBuiltVersion: (id: string, builder: BuilderSpec, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ builder, description }) }),
@@ -431,8 +481,8 @@ export const api = {
     request<void>(`/system/settings/${key}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
   authConfig: () => request<AuthConfig>('/auth/config'),
   groups: () => request<{ groups: Group[] }>('/groups'),
-  createGroup: (name: string, description: string, selector: Selector) =>
-    request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description, selector }) }),
+  createGroup: (name: string, description: string, selector: Selector, project_id: string | null) =>
+    request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description, selector, project_id }) }),
   updateGroup: (id: string, name: string, description: string, selector: Selector) =>
     request<Group>(`/groups/${id}`, { method: 'PUT', body: JSON.stringify({ name, description, selector }) }),
   setGroupConfig: (id: string, configVersionId: string, batchSize: number, maxFailurePct: number) =>
@@ -447,21 +497,21 @@ export const api = {
     if (before !== undefined) p.set('before', String(before))
     return request<{ events: AuditEvent[] }>(`/audit?${p}`)
   },
-  facets: () => request<{ facets: Facet[] }>('/agents/facets'),
+  facets: (project?: string) => request<{ facets: Facet[] }>(`/agents/facets${project ? `?project_id=${project}` : ''}`),
   rollouts: () => request<{ rollouts: Rollout[] }>('/rollouts'),
   rollout: (id: string) => request<{ rollout: Rollout; problems: RolloutProblem[] }>(`/rollouts/${id}`),
-  previewRollout: (selector: Selector) =>
-    request<RolloutPreview>('/rollouts/preview', { method: 'POST', body: JSON.stringify({ selector }) }),
+  previewRollout: (selector: Selector, project_id: string | null) =>
+    request<RolloutPreview>('/rollouts/preview', { method: 'POST', body: JSON.stringify({ selector, project_id }) }),
   createRollout: (r: NewRollout) => request<Rollout>('/rollouts', { method: 'POST', body: JSON.stringify(r) }),
   rolloutAction: (id: string, action: 'pause' | 'resume' | 'abort' | 'rollback') => request<void>(`/rollouts/${id}/${action}`, { method: 'POST' }),
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
-  issueApiKey: (name: string, expiresAt: string | null) =>
-    request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),
+  issueApiKey: (name: string, expiresAt: string | null, project_id: string | null) =>
+    request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt, project_id }) }),
   apiTokens: () => request<{ tokens: ApiToken[] }>('/auth/tokens'),
-  createApiToken: (name: string, role: Role, expires_days: number) =>
-    request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days }) }),
+  createApiToken: (name: string, role: Role, expires_days: number, project_id: string | null) =>
+    request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days, project_id }) }),
   revokeApiToken: (id: string) => request<void>(`/auth/tokens/${id}`, { method: 'DELETE' }),
-  installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number }) =>
+  installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number; project_id: string | null }) =>
     request<{ script: string; api_key_id: string }>('/agents/install-command', { method: 'POST', body: JSON.stringify(req) }),
   revokedCerts: () => request<{ revoked_certs: RevokedCert[] }>('/credentials/revoked-certs'),
   revokeCert: (name: string, certificatePem: string) =>

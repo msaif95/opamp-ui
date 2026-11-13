@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type AgentQuery } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { AgentStatus, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 
@@ -47,12 +48,15 @@ export function FleetDashboard() {
   const [order, setOrder] = useState<AgentQuery['order']>('asc')
   const [attrs, setAttrs] = useState<Record<string, string>>({})
   const [groupId, setGroupId] = useState('')
+  const [project, setProject] = useState('')
+  const { user } = useAuth()
+  const hasProjects = useHasProjects()
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
   const [filterText, setFilterText] = useState('')
   const [filterError, setFilterError] = useState(false)
 
-  const summary = useQuery({ queryKey: ['summary'], queryFn: api.summary, refetchInterval: BACKGROUND_REFRESH_MS })
-  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, ...views[view].filter }
+  const summary = useQuery({ queryKey: ['summary', project], queryFn: () => api.summary(project || undefined), refetchInterval: BACKGROUND_REFRESH_MS })
+  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, project: project || undefined, ...views[view].filter }
   const agents = useQuery({
     queryKey: ['agents', query],
     queryFn: () => api.agents(query),
@@ -153,6 +157,25 @@ export function FleetDashboard() {
             </button>
           </span>
         )}
+        {hasProjects && (
+          <select
+            className="input w-44"
+            value={project}
+            onChange={(e) => {
+              setProject(e.target.value)
+              setPage(0)
+            }}
+            aria-label="Project"
+          >
+            <option value="">All projects</option>
+            {user?.projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            {(user?.admin || user?.role) && <option value="none">No project</option>}
+          </select>
+        )}
         {(groups.data?.groups.length ?? 0) > 0 && (
           <select
             className="input w-48"
@@ -198,6 +221,7 @@ export function FleetDashboard() {
               <tr>
                 <th>Status</th>
                 {sortHeader('name', 'Host')}
+                {hasProjects && <th>Project</th>}
                 <th>Service</th>
                 <th>Version</th>
                 <th>Env</th>
@@ -215,6 +239,11 @@ export function FleetDashboard() {
                     <AgentStatus agent={a} />
                   </td>
                   <td className="font-mono text-xs">{a.attributes['host.name'] ?? a.instance_uid}</td>
+                  {hasProjects && (
+                    <td>
+                      <ProjectName id={a.project_id} />
+                    </td>
+                  )}
                   <td>{a.attributes['service.name'] ?? '–'}</td>
                   <td>{a.agent_version ?? '–'}</td>
                   <td>{a.attributes['env'] ?? '–'}</td>
@@ -229,7 +258,7 @@ export function FleetDashboard() {
               ))}
               {agents.data?.agents.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-muted">
+                  <td colSpan={11} className="py-8 text-center text-muted">
                     No agents match.
                   </td>
                 </tr>

@@ -4,6 +4,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type BuilderComponent, type BuilderKind, type BuilderSpec, type BuilderType } from '../../api-client/client'
+import { ProjectSelect } from '../../components/ProjectSelect'
 import { ErrorNote } from '../../components/ui'
 import { IssueList } from '../config-editor/parts'
 import { ComponentForm } from './ComponentForm'
@@ -31,7 +32,18 @@ function summary(c: BuilderComponent, type: BuilderType | undefined) {
     .join(' · ')
 }
 
-function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; configId?: string; configName?: string }) {
+function BuilderBody({
+  initial,
+  configId,
+  configName,
+  configProject,
+}: {
+  initial: BuilderSpec
+  configId?: string
+  configName?: string
+  /** Project of the config being edited. */
+  configProject?: string | null
+}) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [spec, setSpec] = useState<BuilderSpec>(initial)
@@ -39,15 +51,19 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
   const [open, setOpen] = useState<{ key: keyof BuilderSpec; index: number } | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  // A new config goes into the chosen project; an existing one stays where it is.
+  const [chosenProject, setChosenProject] = useState<string | null | undefined>(configId ? (configProject ?? null) : undefined)
+  const project = chosenProject ?? null
 
   const catalog = useQuery({ queryKey: ['builder-catalog'], queryFn: api.builderCatalog, staleTime: Infinity })
   const types = catalog.data?.types ?? []
   const typeOf = (kind: BuilderKind, type: string) => types.find((t) => t.kind === kind && t.type === type)
   const library = useQuery({ queryKey: ['builder-library'], queryFn: api.library })
-  const items = library.data?.items ?? []
+  // Only pieces from the same project can be reused, so a config never depends on another project's settings.
+  const items = (library.data?.items ?? []).filter((it) => it.project_id === project)
   const saveToLibrary = useMutation({
     mutationFn: (v: { kind: BuilderKind; key: keyof BuilderSpec; index: number; name: string; c: BuilderComponent }) =>
-      api.saveLibraryItem({ kind: v.kind, name: v.name, type: v.c.type, params: v.c.params }),
+      api.saveLibraryItem({ kind: v.kind, name: v.name, type: v.c.type, params: v.c.params, project_id: project }),
     onSuccess: async (item, v) => {
       await qc.invalidateQueries({ queryKey: ['builder-library'] })
       // The pipeline now refers to the saved item instead of holding its own copy.
@@ -71,7 +87,7 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
     mutationFn: async () =>
       configId
         ? (await api.addBuiltVersion(configId, spec, description.trim())).template_id
-        : (await api.createBuiltConfig(name.trim(), description.trim(), spec)).config.id,
+        : (await api.createBuiltConfig(name.trim(), description.trim(), spec, project)).config.id,
     onSuccess: async (savedId) => {
       await qc.invalidateQueries({ queryKey: ['configs'] })
       navigate(`/configs/${savedId}`)
@@ -243,6 +259,7 @@ function BuilderBody({ initial, configId, configName }: { initial: BuilderSpec; 
       </section>
 
       <section className="card flex flex-wrap items-end gap-3 p-4">
+        {!configId && <ProjectSelect value={chosenProject} onChange={setChosenProject} />}
         {!configId && (
           <label className="space-y-1">
             <span className="block text-xs text-muted">Config name</span>
@@ -293,5 +310,5 @@ export function PipelineBuilder() {
       </div>
     )
   }
-  return <BuilderBody key={version.data.id} initial={version.data.builder_spec} configId={id} configName={detail.data.config.name} />
+  return <BuilderBody key={version.data.id} initial={version.data.builder_spec} configId={id} configName={detail.data.config.name} configProject={detail.data.config.project_id} />
 }

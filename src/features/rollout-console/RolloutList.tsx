@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
@@ -10,6 +11,7 @@ import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
 export function RolloutList() {
   const navigate = useNavigate()
   const { can } = useAuth()
+  const hasProjects = useHasProjects()
   const { data, error } = useQuery({
     queryKey: ['rollouts'],
     queryFn: api.rollouts,
@@ -35,6 +37,7 @@ export function RolloutList() {
               <tr>
                 <th>Status</th>
                 <th>Config</th>
+                {hasProjects && <th>Project</th>}
                 <th>Target</th>
                 <th>Agents</th>
                 <th className="w-64">Progress</th>
@@ -51,6 +54,11 @@ export function RolloutList() {
                   <td>
                     {r.config_name} v{r.config_version}
                   </td>
+                  {hasProjects && (
+                    <td>
+                      <ProjectName id={r.project_id} />
+                    </td>
+                  )}
                   <td>
                     <SelectorChips selector={r.selector} group={r.group_name} />
                   </td>
@@ -64,7 +72,7 @@ export function RolloutList() {
               ))}
               {data?.rollouts.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted">
+                  <td colSpan={8} className="py-8 text-center text-muted">
                     No bulk pushes yet.
                   </td>
                 </tr>

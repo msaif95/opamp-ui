@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Group, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { ProjectName, ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { ErrorNote } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
@@ -10,7 +11,7 @@ import { GroupConfigForm } from './GroupConfigForm'
 
 export function Groups() {
   const qc = useQueryClient()
-  const { can } = useAuth()
+  const { can, canIn } = useAuth()
   // The group being edited; null while creating a new one.
   const [editing, setEditing] = useState<Group | null>(null)
   // The group whose config is being set.
@@ -18,12 +19,16 @@ export function Groups() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [selector, setSelector] = useState<Selector>({})
+  // Project for a new group; an existing group stays in its project.
+  const [chosenProject, setChosenProject] = useState<string | null | undefined>(undefined)
+  const hasProjects = useHasProjects()
   const hasSelector = Object.keys(selector).length > 0
+  const project = editing ? editing.project_id : (chosenProject ?? null)
 
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
   const preview = useQuery({
-    queryKey: ['agents', 'preview', selector],
-    queryFn: () => api.previewRollout(selector),
+    queryKey: ['agents', 'preview', selector, project],
+    queryFn: () => api.previewRollout(selector, project),
     enabled: hasSelector,
     placeholderData: keepPreviousData,
   })
@@ -39,7 +44,7 @@ export function Groups() {
     mutationFn: () =>
       editing
         ? api.updateGroup(editing.id, name.trim(), description.trim(), selector)
-        : api.createGroup(name.trim(), description.trim(), selector),
+        : api.createGroup(name.trim(), description.trim(), selector, project),
     onSuccess: () => {
       load(null)
       return refresh()
@@ -74,6 +79,7 @@ export function Groups() {
             <thead>
               <tr>
                 <th>Name</th>
+                {hasProjects && <th>Project</th>}
                 <th>Matches</th>
                 <th>Agents now</th>
                 <th>Config</th>
@@ -87,6 +93,11 @@ export function Groups() {
                     <div className="font-medium">{g.name}</div>
                     {g.description && <div className="text-xs text-muted">{g.description}</div>}
                   </td>
+                  {hasProjects && (
+                    <td>
+                      <ProjectName id={g.project_id} />
+                    </td>
+                  )}
                   <td>
                     <SelectorChips selector={g.selector} />
                   </td>
@@ -101,7 +112,7 @@ export function Groups() {
                     )}
                   </td>
                   <td className="space-x-2 text-right whitespace-nowrap">
-                    {can('operator') && (
+                    {canIn(g.project_id, 'operator') && (
                       <>
                         <button className="btn btn-sm" onClick={() => setAssigning(assigning?.id === g.id ? null : g)}>
                           {g.config ? 'Change config' : 'Set config'}
@@ -125,7 +136,7 @@ export function Groups() {
               ))}
               {groups.data?.groups.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted">
+                  <td colSpan={6} className="py-8 text-center text-muted">
                     No groups yet.
                   </td>
                 </tr>
@@ -146,6 +157,7 @@ export function Groups() {
             </p>
           )}
           <div className="flex flex-wrap gap-3">
+            {!editing && <ProjectSelect value={chosenProject} onChange={setChosenProject} />}
             <label className="space-y-1">
               <span className="block text-xs text-muted">Name</span>
               <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. prod-emea-payments" />
@@ -155,7 +167,7 @@ export function Groups() {
               <input className="input w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
             </label>
           </div>
-          <SelectorPicker selector={selector} onChange={setSelector} />
+          <SelectorPicker selector={selector} onChange={setSelector} project={project} />
           <p className="text-sm">
             {!hasSelector ? (
               <span className="text-muted">Pick at least one attribute value.</span>

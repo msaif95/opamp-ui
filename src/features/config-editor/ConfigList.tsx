@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { OriginBadge } from './parts'
@@ -10,6 +11,7 @@ import { OriginBadge } from './parts'
 export function ConfigList() {
   const navigate = useNavigate()
   const { can } = useAuth()
+  const hasProjects = useHasProjects()
   const { data, error } = useQuery({ queryKey: ['configs'], queryFn: api.configs })
 
   return (
@@ -35,6 +37,7 @@ export function ConfigList() {
             <thead>
               <tr>
                 <th>Name</th>
+                {hasProjects && <th>Project</th>}
                 <th>Source</th>
                 <th>Latest version</th>
                 <th>Assigned agents</th>
@@ -48,6 +51,11 @@ export function ConfigList() {
                     <div className="font-medium">{c.name}</div>
                     {c.description && <div className="text-xs text-muted">{c.description}</div>}
                   </td>
+                  {hasProjects && (
+                    <td>
+                      <ProjectName id={c.project_id} />
+                    </td>
+                  )}
                   <td>
                     <OriginBadge origin={c.origin} />
                   </td>
@@ -68,7 +76,7 @@ export function ConfigList() {
               ))}
               {data?.configs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted">
+                  <td colSpan={6} className="py-8 text-center text-muted">
                     No configs yet.
                   </td>
                 </tr>

@@ -8,8 +8,18 @@ const PREFERRED = ['env', 'deployment.environment', 'region', 'cloud.region', 'c
 const rank = (k: string) => (PREFERRED.includes(k) ? PREFERRED.indexOf(k) : PREFERRED.length)
 
 /** Chip picker over the attributes the fleet reports. Values of one attribute are OR-ed; attributes are AND-ed. */
-export function SelectorPicker({ selector, onChange }: { selector: Selector; onChange: (s: Selector) => void }) {
-  const facets = useQuery({ queryKey: ['agents', 'facets'], queryFn: api.facets })
+export function SelectorPicker({
+  selector,
+  onChange,
+  project,
+}: {
+  selector: Selector
+  onChange: (s: Selector) => void
+  /** Show only what this project's collectors report (null: collectors outside any project). Omit for everything visible. */
+  project?: string | null
+}) {
+  const scope = project === undefined ? undefined : (project ?? 'none')
+  const facets = useQuery({ queryKey: ['agents', 'facets', scope], queryFn: () => api.facets(scope) })
   const sorted = [...(facets.data?.facets ?? [])].sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key))
 
   const toggle = (key: string, value: string) => {

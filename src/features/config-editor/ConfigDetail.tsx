@@ -13,7 +13,7 @@ export function ConfigDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { can } = useAuth()
+  const { canIn } = useAuth()
 
   const [selected, setSelected] = useState<number | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -46,7 +46,8 @@ export function ConfigDetail() {
   const saved = version.data?.body ?? ''
   const body = draft ?? saved
   const dirty = draft !== null && draft !== saved
-  const editable = config?.origin === 'ui' && can('operator')
+  const mayEdit = config !== undefined && canIn(config.project_id, 'operator')
+  const editable = config?.origin === 'ui' && mayEdit
 
   const validate = useMutation({ mutationFn: () => api.validateConfig(body), onSuccess: (r) => setIssues(r.issues) })
   const save = useMutation({
@@ -85,7 +86,7 @@ export function ConfigDetail() {
             Assigned to {config.assigned_agents.toLocaleString()} {config.assigned_agents === 1 ? 'agent' : 'agents'}
           </p>
         </div>
-        {can('operator') && (
+        {mayEdit && (
           <button
             className="btn btn-danger"
             disabled={config.assigned_agents > 0 || remove.isPending}

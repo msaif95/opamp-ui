@@ -14,6 +14,7 @@ import { AuditLog } from './features/audit-log/AuditLog'
 import { InstallCollector } from './features/install/InstallCollector'
 import { System } from './features/system/System'
 import { Groups } from './features/targeting/Groups'
+import { Projects } from './features/projects/Projects'
 import { NewRollout } from './features/rollout-console/NewRollout'
 import { RolloutDetail } from './features/rollout-console/RolloutDetail'
 import { RolloutList } from './features/rollout-console/RolloutList'
@@ -38,6 +39,7 @@ function Shell() {
         {can('operator') && <Route path="/configs/:id/build" element={<PipelineBuilder />} />}
         <Route path="/configs/:id" element={<ConfigDetail />} />
         <Route path="/groups" element={<Groups />} />
+        {can('admin') && <Route path="/projects" element={<Projects />} />}
         {can('admin') && <Route path="/audit" element={<AuditLog />} />}
         {can('admin') && <Route path="/system" element={<System />} />}
         <Route path="/rollouts" element={<RolloutList />} />

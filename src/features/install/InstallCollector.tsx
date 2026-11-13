@@ -3,6 +3,7 @@ import { ArrowLeft, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api-client/client'
+import { ProjectSelect } from '../../components/ProjectSelect'
 
 const platforms = [
   { value: 'linux_amd64', label: 'Linux (x86-64)' },
@@ -23,9 +24,10 @@ export function InstallCollector() {
   const [labelText, setLabelText] = useState('')
   const [labelError, setLabelError] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [project, setProject] = useState<string | null | undefined>(undefined)
 
   const generate = useMutation({
-    mutationFn: () => api.installCommand({ platform, version: version.trim(), labels, key_name: keyName.trim(), expires_days: Number(expiresDays) }),
+    mutationFn: () => api.installCommand({ platform, version: version.trim(), labels, key_name: keyName.trim(), expires_days: Number(expiresDays), project_id: project ?? null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
   })
 
@@ -72,6 +74,7 @@ export function InstallCollector() {
             <span className="block text-xs text-muted">Collector version</span>
             <input className="input w-32" value={version} onChange={(e) => setVersion(e.target.value)} />
           </label>
+          <ProjectSelect value={project} onChange={setProject} role="admin" label="Project the collectors join" />
           <label className="space-y-1">
             <span className="block text-xs text-muted">Name for the API key this creates</span>
             <input className="input w-64" value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="e.g. iad1-prod-collectors" />

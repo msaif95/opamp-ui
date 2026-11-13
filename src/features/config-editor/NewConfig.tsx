@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { ProjectSelect } from '../../components/ProjectSelect'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../api-client/client'
 import { IssueList, YamlEditor } from './parts'
@@ -28,9 +29,10 @@ export function NewConfig() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [body, setBody] = useState(STARTER)
+  const [project, setProject] = useState<string | null | undefined>(undefined)
 
   const create = useMutation({
-    mutationFn: () => api.createConfig(name.trim(), description.trim(), body),
+    mutationFn: () => api.createConfig(name.trim(), description.trim(), body, project ?? null),
     onSuccess: async (res) => {
       await qc.invalidateQueries({ queryKey: ['configs'] })
       navigate(`/configs/${res.config.id}`)
@@ -53,6 +55,7 @@ export function NewConfig() {
           <span className="block text-xs text-muted">Name</span>
           <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. prod-gateway" autoFocus />
         </label>
+        <ProjectSelect value={project} onChange={setProject} />
         <label className="flex-1 space-y-1">
           <span className="block text-xs text-muted">Description</span>
           <input className="input w-full" value={description} onChange={(e) => setDescription(e.target.value)} />

@@ -10,7 +10,7 @@ import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
 export function RolloutDetail() {
   const { id = '' } = useParams()
   const qc = useQueryClient()
-  const { can } = useAuth()
+  const { canIn } = useAuth()
 
   const { data, error } = useQuery({
     queryKey: ['rollouts', id],
@@ -55,7 +55,7 @@ export function RolloutDetail() {
             </span>
           </div>
         </div>
-        {can('operator') && canRollBack && (
+        {canIn(r.project_id, 'operator') && canRollBack && (
           <div className="flex gap-2">
             {!active ? null : r.status === 'running' ? (
               <button className="btn" disabled={act.isPending} onClick={() => act.mutate('pause')}>

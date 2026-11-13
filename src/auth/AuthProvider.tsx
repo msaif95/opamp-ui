@@ -23,10 +23,17 @@ interface AuthState {
   ssoError: string | null
   login: (username: string, password: string) => Promise<void>
   logout: () => void
+  /** Re-reads the user's projects and roles, e.g. after an admin creates a project. */
+  reloadUser: () => Promise<void>
+  /** True if the user has at least this role somewhere: globally or in any project. Use it to decide whether to offer an action at all. */
   can: (role: Role) => boolean
+  /** True if the user has at least this role on a resource in the given project (null: outside any project). */
+  canIn: (project: string | null, role: Role) => boolean
+  /** Projects (and "no project", as null) in which the user has at least this role, for "create in…" pickers. */
+  projectsFor: (role: Role) => { id: string | null; name: string }[]
 }
 
-const rank: Record<Role, number> = { viewer: 1, operator: 2, admin: 3 }
+const rank: Record<Role | '', number> = { '': 0, viewer: 1, operator: 2, admin: 3 }
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -54,12 +61,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       ssoError,
       logout,
+      reloadUser: async () => setUser(await api.me()),
       login: async (username, password) => {
         const res = await api.login(username, password)
         setToken(res.token)
-        setUser(res.user)
+        setUser(await api.me())
       },
-      can: (role) => user !== null && rank[user.role] >= rank[role],
+      can: (role) =>
+        user !== null && (user.admin || rank[user.role] >= rank[role] || user.projects.some((p) => rank[p.role] >= rank[role])),
+      canIn: (project, role) => {
+        if (!user) return false
+        if (user.admin) return true
+        if (project === null) return rank[user.role] >= rank[role]
+        return rank[user.projects.find((p) => p.id === project)?.role ?? ''] >= rank[role]
+      },
+      projectsFor: (role) => {
+        if (!user) return []
+        const list: { id: string | null; name: string }[] = user.projects.filter((p) => user.admin || rank[p.role] >= rank[role])
+        if (user.admin || rank[user.role] >= rank[role]) list.push({ id: null, name: 'No project' })
+        return list
+      },
     }),
     [user, loading, logout],
   )

@@ -4,6 +4,8 @@ import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Selector } from '../../api-client/client'
+import { useAuth } from '../../auth/AuthProvider'
+import { ProjectSelect } from '../../components/ProjectSelect'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { parseSteps } from '../../lib/steps'
 
@@ -21,18 +23,24 @@ export function NewRollout() {
   const [maxFailurePct, setMaxFailurePct] = useState('2')
   const [autoRollback, setAutoRollback] = useState(false)
   const [manualApproval, setManualApproval] = useState(false)
+  const [chosenProject, setChosenProject] = useState<string | null | undefined>(undefined)
+  const { user } = useAuth()
 
   const configs = useQuery({ queryKey: ['configs'], queryFn: api.configs })
   const detail = useQuery({ queryKey: ['configs', configId], queryFn: () => api.config(configId), enabled: configId !== '' })
   const versions = detail.data?.versions ?? []
   const chosenVersion = versionId || versions[0]?.id || ''
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
+  // A push stays inside one project: a saved group brings its own, otherwise it is the chosen one.
+  const project = groupId ? (groups.data?.groups.find((g) => g.id === groupId)?.project_id ?? null) : (chosenProject ?? null)
+  const sameProject = <T extends { project_id: string | null }>(list: T[] | undefined) =>
+    (list ?? []).filter((x) => x.project_id === project || user?.admin)
 
   const hasSelector = Object.keys(selector).length > 0
   const targeted = hasSelector || allAgents
   const preview = useQuery({
-    queryKey: ['agents', 'preview', selector],
-    queryFn: () => api.previewRollout(selector),
+    queryKey: ['agents', 'preview', selector, project],
+    queryFn: () => api.previewRollout(selector, project),
     enabled: targeted,
     placeholderData: keepPreviousData,
   })
@@ -64,6 +72,7 @@ export function NewRollout() {
         max_failure_pct: pct,
         auto_rollback: autoRollback,
         manual_approval: manualApproval,
+        project_id: project,
       }),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['rollouts'] })
@@ -85,7 +94,20 @@ export function NewRollout() {
 
       <section className="card space-y-3 p-4">
         <h2 className="font-medium">1. Config</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-2">
+          {!groupId && (
+            <ProjectSelect
+              value={chosenProject}
+              onChange={(p) => {
+                // Collectors, attributes and configs all differ per project.
+                setChosenProject(p)
+                setSelector({})
+                setAllAgents(false)
+                setConfigId('')
+                setVersionId('')
+              }}
+            />
+          )}
           <select
             className="input w-64"
             value={configId}
@@ -96,7 +118,7 @@ export function NewRollout() {
             aria-label="Config"
           >
             <option value="">Select a config…</option>
-            {configs.data?.configs.map((c) => (
+            {sameProject(configs.data?.configs).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -131,6 +153,7 @@ export function NewRollout() {
           </select>
         </div>
         <SelectorPicker
+          project={project}
           selector={selector}
           onChange={(s) => {
             // Editing the target by hand means it is no longer the saved group.

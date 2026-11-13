@@ -5,11 +5,18 @@ import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { ApiTokens } from './ApiTokens'
 import { RevokedCerts } from './RevokedCerts'
+import { useAuth } from '../../auth/AuthProvider'
+import { ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 
 function keyState(k: ApiKey) {
   if (k.revoked_at) return <Badge tone="danger">Revoked</Badge>
   if (k.expires_at && new Date(k.expires_at) < new Date()) return <Badge tone="warning">Expired</Badge>
   return <Badge tone="success">Active</Badge>
+}
+
+/** ISO time that many days from now, or null for never. */
+function expiryAfter(days: number): string | null {
+  return days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null
 }
 
 export function Credentials() {
@@ -24,7 +31,7 @@ export function Credentials() {
   const issue = useMutation({
     mutationFn: () => {
       const days = Number(expiresDays)
-      return api.issueApiKey(name.trim(), days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null)
+      return api.issueApiKey(name.trim(), expiryAfter(days), project ?? null)
     },
     onSuccess: (key) => {
       setIssued(key)
@@ -33,6 +40,13 @@ export function Credentials() {
     },
   })
   const revoke = useMutation({ mutationFn: api.revokeCredential, onSuccess: refresh })
+  const move = useMutation({
+    mutationFn: (v: { id: string; project: string | null }) => api.setApiKeyProject(v.id, v.project),
+    onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: ['agents'] })]),
+  })
+  const [project, setProject] = useState<string | null | undefined>(undefined)
+  const { user } = useAuth()
+  const hasProjects = useHasProjects()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -48,6 +62,7 @@ export function Credentials() {
           <span className="block text-xs text-muted">Key name</span>
           <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. dc1-collectors" />
         </label>
+        <ProjectSelect value={project} onChange={setProject} role="admin" label="Project its collectors join" />
         <label className="space-y-1">
           <span className="block text-xs text-muted">Expires in (days, 0 = never)</span>
           <input className="input w-40" type="number" min={0} value={expiresDays} onChange={(e) => setExpiresDays(e.target.value)} />
@@ -76,6 +91,7 @@ export function Credentials() {
             <thead>
               <tr>
                 <th>Name</th>
+                {hasProjects && <th>Project</th>}
                 <th>State</th>
                 <th>Created by</th>
                 <th>Created</th>
@@ -88,6 +104,32 @@ export function Credentials() {
               {keys.data?.api_keys.map((k) => (
                 <tr key={k.id}>
                   <td>{k.name}</td>
+                  {hasProjects && (
+                    <td>
+                      <select
+                        className="input w-40"
+                        value={k.project_id ?? ''}
+                        disabled={k.revoked_at !== null || move.isPending}
+                        aria-label={`Project of ${k.name}`}
+                        onChange={(e) => {
+                          const target = e.target.value || null
+                          if (
+                            confirm(
+                              `Move the key "${k.name}" and every collector using it to ${target ? 'that project' : 'no project'}? People in the old project lose sight of those collectors.`,
+                            )
+                          )
+                            move.mutate({ id: k.id, project: target })
+                        }}
+                      >
+                        <option value="">No project</option>
+                        {user?.projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  )}
                   <td>{keyState(k)}</td>
                   <td>{k.created_by}</td>
                   <td className="text-muted">{timeAgo(k.created_at)}</td>
@@ -110,7 +152,7 @@ export function Credentials() {
               ))}
               {keys.data?.api_keys.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted">
+                  <td colSpan={8} className="py-8 text-center text-muted">
                     No API keys issued yet.
                   </td>
                 </tr>
