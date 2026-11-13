@@ -66,10 +66,10 @@ export function RolloutDetail() {
                 className="btn btn-primary"
                 disabled={act.isPending}
                 onClick={() => {
-                  if (confirm('Resume and continue with the next batch? Failures so far will no longer count toward the limit.')) act.mutate('resume')
+                  if (confirm('Continue with the next batch? Failures so far will no longer count toward the limit.')) act.mutate('resume')
                 }}
               >
-                Resume
+                {r.error?.startsWith('waiting for approval') ? 'Approve next batch' : 'Resume'}
               </button>
             )}
             {active && (
@@ -108,7 +108,7 @@ export function RolloutDetail() {
         <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
           <span>
             Batch {r.batches_released} of {r.total_batches} · {pace} · {r.auto_rollback ? 'rolls back' : 'pauses'} above {r.max_failure_pct}%
-            failures per batch
+            failures per batch{r.manual_approval && ' · each batch needs approval'}
           </span>
           <span>{r.total_agents.toLocaleString()} agents targeted</span>
         </div>

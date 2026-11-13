@@ -239,6 +239,8 @@ export interface Rollout {
   canary_steps_pct: number[] | null
   max_failure_pct: number
   auto_rollback: boolean
+  /** Pauses after every batch until someone approves the next. */
+  manual_approval: boolean
   status: RolloutStatus
   batches_released: number
   total_batches: number
@@ -273,6 +275,7 @@ export interface NewRollout {
   canary_steps_pct: number[] | null
   max_failure_pct: number
   auto_rollback: boolean
+  manual_approval: boolean
 }
 
 /** AgentCapabilities bit: the agent accepts remote config from the server. */

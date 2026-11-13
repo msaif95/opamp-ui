@@ -20,6 +20,7 @@ export function NewRollout() {
   const [stepsText, setStepsText] = useState('1, 10, 50, 100')
   const [maxFailurePct, setMaxFailurePct] = useState('2')
   const [autoRollback, setAutoRollback] = useState(false)
+  const [manualApproval, setManualApproval] = useState(false)
 
   const configs = useQuery({ queryKey: ['configs'], queryFn: api.configs })
   const detail = useQuery({ queryKey: ['configs', configId], queryFn: () => api.config(configId), enabled: configId !== '' })
@@ -62,6 +63,7 @@ export function NewRollout() {
         canary_steps_pct: strategy === 'canary' ? steps : null,
         max_failure_pct: pct,
         auto_rollback: autoRollback,
+        manual_approval: manualApproval,
       }),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['rollouts'] })
@@ -198,6 +200,10 @@ export function NewRollout() {
         <label className="flex items-center gap-2 text-xs">
           <input type="checkbox" checked={autoRollback} onChange={(e) => setAutoRollback(e.target.checked)} />
           When that limit is exceeded, roll back automatically instead of pausing
+        </label>
+        <label className="flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={manualApproval} onChange={(e) => setManualApproval(e.target.checked)} />
+          Wait for approval after every batch before starting the next
         </label>
         <p className="text-xs text-muted">
           Agents are pushed in random order, one batch at a time. The next batch starts only when every agent in the current one has applied
