@@ -112,7 +112,9 @@ export function Secrets() {
                 <th>Use in a config as</th>
                 {hasProjects && <th>Project</th>}
                 <th>Last changed</th>
-                <th />
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

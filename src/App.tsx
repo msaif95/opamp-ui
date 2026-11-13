@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { DialogHost } from './components/Dialogs'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastHost } from './components/Toasts'
 import { Layout } from './components/Layout'
 import { AgentDetail } from './features/agent-detail/AgentDetail'
 import { ConfigDetail } from './features/config-editor/ConfigDetail'
@@ -22,6 +23,9 @@ import { RolloutDetail } from './features/rollout-console/RolloutDetail'
 import { RolloutList } from './features/rollout-console/RolloutList'
 import { ThemeProvider } from './state/ThemeContext'
 import { FleetDashboard } from './features/fleet-dashboard/FleetDashboard'
+import { CompareAgents } from './features/compare/CompareAgents'
+import { Overview } from './features/overview/Overview'
+import { Topology } from './features/topology/Topology'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 
@@ -32,7 +36,10 @@ function Shell() {
   return (
     <Routes>
       <Route element={<Layout />}>
+        <Route path="/overview" element={<Overview />} />
+        <Route path="/topology" element={<Topology />} />
         <Route path="/agents" element={<FleetDashboard />} />
+        <Route path="/agents/compare" element={<CompareAgents />} />
         {can('admin') && <Route path="/agents/install" element={<InstallCollector />} />}
         <Route path="/agents/:uid" element={<AgentDetail />} />
         <Route path="/configs" element={<ConfigList />} />
@@ -49,7 +56,7 @@ function Shell() {
         {can('operator') && <Route path="/rollouts/new" element={<NewRollout />} />}
         <Route path="/rollouts/:id" element={<RolloutDetail />} />
         {can('admin') && <Route path="/credentials" element={<Credentials />} />}
-        <Route path="*" element={<Navigate to="/agents" replace />} />
+        <Route path="*" element={<Navigate to="/overview" replace />} />
       </Route>
     </Routes>
   )
@@ -64,6 +71,7 @@ export default function App() {
           <AuthProvider>
             <Shell />
             <DialogHost />
+            <ToastHost />
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Rocket } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -7,6 +7,7 @@ import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
+import { EmptyState } from '../../components/EmptyState'
 
 export function RolloutList() {
   const navigate = useNavigate()
@@ -31,6 +32,24 @@ export function RolloutList() {
           )
         }
       />
+      {data?.rollouts.length === 0 ? (
+        <EmptyState
+          icon={Rocket}
+          title="No bulk pushes yet"
+          action={
+            can('operator') && (
+              <Link to="/rollouts/new" className="btn btn-primary">
+                <Plus size={14} /> New bulk push
+              </Link>
+            )
+          }
+        >
+          <p>
+            A bulk push sends one config version to many collectors in batches. It pauses, or rolls back, when too many collectors in a
+            batch fail, and can wait for approval between batches. You need a config and some connected collectors first.
+          </p>
+        </EmptyState>
+      ) : (
       <div className="card overflow-auto">
         {error ? (
           <ErrorNote error={error} />
@@ -84,6 +103,7 @@ export function RolloutList() {
           </table>
         )}
       </div>
+      )}
     </div>
   )
 }

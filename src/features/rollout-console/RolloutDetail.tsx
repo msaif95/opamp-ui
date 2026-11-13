@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { RolloutTimeline } from './RolloutTimeline'
 import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
 import { confirmDialog } from '../../lib/dialog'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 export function RolloutDetail() {
   const { id = '' } = useParams()
@@ -36,9 +37,7 @@ export function RolloutDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/rollouts" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Bulk push
-      </Link>
+      <Breadcrumbs items={[{ label: 'Bulk push', to: '/rollouts' }, { label: `${r.config_name} v${r.config_version}` }]} />
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
@@ -109,6 +108,8 @@ export function RolloutDetail() {
         </div>
         <ProgressBar rollout={r} legend />
       </section>
+
+      <RolloutTimeline rollout={r} />
 
       <section className="card overflow-auto">
         <h2 className="border-b border-border px-4 py-2 font-medium">Agents needing attention</h2>

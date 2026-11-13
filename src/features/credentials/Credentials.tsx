@@ -146,7 +146,9 @@ export function Credentials() {
                   <th>Created</th>
                   <th>Expires</th>
                   <th>Last used</th>
-                  <th />
+                  <th>
+                  <span className="sr-only">Actions</span>
+                </th>
                 </tr>
               </thead>
               <tbody>

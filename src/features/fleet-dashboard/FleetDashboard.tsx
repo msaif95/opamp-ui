@@ -1,10 +1,12 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowDown, ArrowUp, Plus, RefreshCw, X } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { ArrowDown, ArrowUp, Download, GitCompareArrows, Plus, RefreshCw, Search, Server, X } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, type AgentQuery } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { EmptyState } from '../../components/EmptyState'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { AgentStatus, ConfigStatus, ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
@@ -43,13 +45,35 @@ export function FleetDashboard() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { can } = useAuth()
+  // Other pages link here with filters already applied: ?view=unhealthy, ?attr=region=eu, ?q=…, ?group=…, ?project=….
+  const [params] = useSearchParams()
   const [page, setPage] = useState(0)
-  const [view, setView] = useState<View>('all')
+  const [view, setView] = useState<View>(() => (params.get('view') && params.get('view')! in views ? (params.get('view') as View) : 'all'))
   const [sort, setSort] = useState<AgentQuery['sort']>('name')
   const [order, setOrder] = useState<AgentQuery['order']>('asc')
-  const [attrs, setAttrs] = useState<Record<string, string>>({})
-  const [groupId, setGroupId] = useState('')
-  const [project, setProject] = useState('')
+  const [attrs, setAttrs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      params
+        .getAll('attr')
+        .map((kv) => [kv.slice(0, kv.indexOf('=')), kv.slice(kv.indexOf('=') + 1)])
+        .filter(([k]) => k),
+    ),
+  )
+  const [groupId, setGroupId] = useState(() => params.get('group') ?? '')
+  const [project, setProject] = useState(() => params.get('project') ?? '')
+  // Free-text search: what is typed, and what is sent once typing pauses.
+  const [searchText, setSearchText] = useState(() => params.get('q') ?? '')
+  const [search, setSearch] = useState(searchText)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchText.trim())
+      setPage(0)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [searchText])
+  // Up to two collectors ticked for comparison.
+  const [picked, setPicked] = useState<string[]>([])
+  const exporting = useMutation({ mutationFn: (format: 'csv' | 'json') => api.exportAgents(query, format) })
   const { user } = useAuth()
   const hasProjects = useHasProjects()
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
@@ -59,7 +83,7 @@ export function FleetDashboard() {
   /** The project filter value for a group's project. */
   const projectOf = (id: string) => groups.data?.groups.find((g) => g.id === id)?.project_id ?? 'none'
   const summary = useQuery({ queryKey: ['summary', project, groupId], queryFn: () => api.summary(project || undefined, groupId || undefined), refetchInterval: BACKGROUND_REFRESH_MS })
-  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, project: project || undefined, ...views[view].filter }
+  const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, project: project || undefined, search: search || undefined, ...views[view].filter }
   const agents = useQuery({
     queryKey: ['agents', query],
     queryFn: () => api.agents(query),
@@ -114,6 +138,32 @@ export function FleetDashboard() {
         title="Fleet"
         action={
           <>
+            {picked.length === 2 && (
+              <Link to={`/agents/compare?a=${picked[0]}&b=${picked[1]}`} className="btn">
+                <GitCompareArrows size={14} /> Compare selected
+              </Link>
+            )}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger className="btn" disabled={exporting.isPending}>
+                <Download size={14} /> {exporting.isPending ? 'Exporting…' : 'Export'}
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-md border border-border bg-panel p-1 shadow-lg">
+                  <DropdownMenu.Label className="px-2 py-1 text-xs text-muted">
+                    The {total.toLocaleString()} collectors matching the filters, with every attribute
+                  </DropdownMenu.Label>
+                  {(['csv', 'json'] as const).map((format) => (
+                    <DropdownMenu.Item
+                      key={format}
+                      className="cursor-default select-none rounded px-2 py-1.5 outline-none data-[highlighted]:bg-accent-soft data-[highlighted]:text-accent"
+                      onSelect={() => exporting.mutate(format)}
+                    >
+                      Download as {format.toUpperCase()}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
             <button className="btn" onClick={refresh} disabled={agents.isFetching}>
               <RefreshCw size={13} className={agents.isFetching ? 'animate-spin' : ''} /> Refresh
             </button>
@@ -126,6 +176,7 @@ export function FleetDashboard() {
         }
       />
 
+      {exporting.error && <ErrorNote error={exporting.error} />}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard label="Total agents" value={s?.total} active={view === 'all'} onClick={() => show('all')} />
         <StatCard label="Connected" value={s?.connected} active={view === 'connected'} onClick={() => show('connected')} />
@@ -200,6 +251,17 @@ export function FleetDashboard() {
             ]}
           />
         )}
+        <div className="relative">
+          <Search size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+          <input
+            className="input w-64 pl-7"
+            type="search"
+            placeholder="Search host, IP, UID or attribute"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            aria-label="Search collectors"
+          />
+        </div>
         <form onSubmit={addFilter}>
           <input
             className={`input w-56 ${filterError ? 'border-danger' : ''}`}
@@ -218,6 +280,25 @@ export function FleetDashboard() {
         ))}
       </div>
 
+      {s?.total === 0 && !search && Object.keys(attrs).length === 0 && !groupId && !project ? (
+        <EmptyState
+          icon={Server}
+          title="No collectors yet"
+          action={
+            can('admin') ? (
+              <Link to="/agents/install" className="btn btn-primary">
+                <Plus size={14} /> Add collectors
+              </Link>
+            ) : undefined
+          }
+        >
+          <p>
+            Collectors appear here as soon as they connect. The console generates an install script that downloads the OpenTelemetry
+            Collector and its OpAMP Supervisor and points them at this backend.
+          </p>
+          {!can('admin') && <p>Ask an administrator to add collectors to one of your projects.</p>}
+        </EmptyState>
+      ) : (
       <div className="card overflow-auto">
         {agents.error ? (
           <ErrorNote error={agents.error} />
@@ -225,6 +306,9 @@ export function FleetDashboard() {
           <table className="table dense">
             <thead>
               <tr>
+                <th className="w-8">
+                  <span className="sr-only">Select to compare</span>
+                </th>
                 <th>Status</th>
                 {sortHeader('name', 'Host')}
                 {hasProjects && <th>Project</th>}
@@ -241,6 +325,16 @@ export function FleetDashboard() {
             <tbody>
               {agents.data?.agents.map((a) => (
                 <tr key={a.instance_uid} className="cursor-pointer" onClick={() => navigate(`/agents/${a.instance_uid}`)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="accent-[var(--c-accent)]"
+                      checked={picked.includes(a.instance_uid)}
+                      // A third tick replaces the older of the two.
+                      onChange={(e) => setPicked(e.target.checked ? [...picked, a.instance_uid].slice(-2) : picked.filter((id) => id !== a.instance_uid))}
+                      aria-label={`Select ${a.attributes['host.name'] ?? a.instance_uid} to compare`}
+                    />
+                  </td>
                   <td>
                     <AgentStatus agent={a} />
                   </td>
@@ -264,8 +358,8 @@ export function FleetDashboard() {
               ))}
               {agents.data?.agents.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-muted">
-                    No agents match.
+                  <td colSpan={12} className="py-8 text-center text-muted">
+                    No collectors match these filters.
                   </td>
                 </tr>
               )}
@@ -273,6 +367,7 @@ export function FleetDashboard() {
           </table>
         )}
       </div>
+      )}
 
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{total.toLocaleString()} agents</span>

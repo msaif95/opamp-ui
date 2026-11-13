@@ -367,6 +367,32 @@ export const CAP_ACCEPTS_REMOTE_CONFIG = 0x2
 /** AgentCapabilities bit: the agent accepts restart commands. */
 export const CAP_ACCEPTS_RESTART = 0x400
 
+/** The fleet's counts at one moment, for trend lines. */
+export interface TrendPoint extends Summary {
+  at: string
+}
+
+/** Collectors sharing one combination of attribute values. */
+export interface BreakdownRow {
+  /** Values of the requested attributes, in order; '' when a collector does not report one. */
+  values: string[]
+  total: number
+  connected: number
+  healthy: number
+  unhealthy: number
+}
+
+/** One batch of a bulk push, for the timeline. */
+export interface RolloutBatch {
+  number: number
+  agents: number
+  counts: Partial<Record<RolloutAgentStatus, number>>
+  /** When its first collector was offered the config; null while not released. */
+  started_at: string | null
+  /** When its last collector settled; null while any is still in progress. */
+  finished_at: string | null
+}
+
 export interface Summary {
   total: number
   connected: number
@@ -403,6 +429,8 @@ export interface AgentQuery {
   healthy?: boolean
   configStatus?: Agent['remote_config_status']
   groupId?: string
+  /** Free text matched against the instance UID and every attribute name and value (host name, IP address, …). */
+  search?: string
   /** A project ID, or 'none' for collectors outside any project. */
   project?: string
   sort: 'name' | 'last_seen'
@@ -447,6 +475,36 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json()
 }
 
+function agentParams(q: AgentQuery) {
+  const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset), sort: q.sort, order: q.order })
+  if (q.connected !== undefined) p.set('connected', String(q.connected))
+  if (q.healthy !== undefined) p.set('healthy', String(q.healthy))
+  if (q.configStatus) p.set('config_status', q.configStatus)
+  if (q.groupId) p.set('group_id', q.groupId)
+  if (q.project) p.set('project_id', q.project)
+  if (q.search) p.set('q', q.search)
+  for (const [k, v] of Object.entries(q.attrs)) p.append('attr', `${k}=${v}`)
+  return p
+}
+
+/** Fetches a file with the session token (a plain link cannot send it) and hands it to the browser to save. */
+async function download(path: string, fallbackName: string) {
+  const token = getToken()
+  const res = await fetch(`/api/v1${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  if (res.status === 401 && token) onUnauthorized()
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new ApiError(res.status, body?.error ?? res.statusText)
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -477,16 +535,21 @@ export const api = {
     request<void>(`/projects/${id}/members/${encodeURIComponent(subject)}`, { method: 'DELETE' }),
   setApiKeyProject: (id: string, project_id: string | null) =>
     request<{ agents_moved: number }>(`/credentials/api-keys/${id}/project`, { method: 'PUT', body: JSON.stringify({ project_id }) }),
-  agents: (q: AgentQuery) => {
-    const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset), sort: q.sort, order: q.order })
-    if (q.connected !== undefined) p.set('connected', String(q.connected))
-    if (q.healthy !== undefined) p.set('healthy', String(q.healthy))
-    if (q.configStatus) p.set('config_status', q.configStatus)
-    if (q.groupId) p.set('group_id', q.groupId)
-    if (q.project) p.set('project_id', q.project)
-    for (const [k, v] of Object.entries(q.attrs)) p.append('attr', `${k}=${v}`)
-    return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
+  agents: (q: AgentQuery) => request<{ agents: Agent[]; total: number }>(`/agents?${agentParams(q)}`),
+  /** Downloads the collectors matching the filters (all pages) as a file. */
+  exportAgents: (q: AgentQuery, format: 'csv' | 'json') => {
+    const p = agentParams(q)
+    p.delete('limit')
+    p.delete('offset')
+    p.set('format', format)
+    return download(`/agents/export?${p}`, `collectors.${format}`)
   },
+  exportAudit: (q: string, format: 'csv' | 'json') => download(`/audit/export?${new URLSearchParams({ q, format })}`, `audit-log.${format}`),
+  summaryHistory: (hours: number) => request<{ points: TrendPoint[] }>(`/summary/history?hours=${hours}`),
+  breakdown: (by: string[]) => request<{ by: string[]; rows: BreakdownRow[] }>(`/agents/breakdown?${new URLSearchParams(by.map((k) => ['by', k]))}`),
+  rolloutBatches: (id: string) => request<{ batches: RolloutBatch[] }>(`/rollouts/${id}/batches`),
+  /** Names of the secrets configs in a project may refer to (null: outside any project). */
+  secretNames: (project: string | null) => request<{ names: string[] }>(`/secrets/names?project_id=${project ?? 'none'}`),
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
   pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),

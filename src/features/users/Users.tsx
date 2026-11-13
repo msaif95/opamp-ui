@@ -114,7 +114,9 @@ export function Users() {
                 <th>Global role</th>
                 <th>Projects</th>
                 <th>Last sign-in</th>
-                <th />
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

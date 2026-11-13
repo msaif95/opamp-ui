@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { ProjectSelect } from '../../components/ProjectSelect'
 import { Select } from '../../components/Select'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 const platforms = [
   { value: 'linux_amd64', label: 'Linux (x86-64)' },
@@ -48,9 +48,7 @@ export function InstallCollector() {
 
   return (
     <div className="max-w-4xl space-y-4">
-      <Link to="/agents" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Fleet
-      </Link>
+      <Breadcrumbs items={[{ label: 'Fleet', to: '/agents' }, { label: 'Add collectors' }]} />
       <div>
         <h1 className="text-lg font-semibold">Add collectors</h1>
         <p className="text-xs text-muted">

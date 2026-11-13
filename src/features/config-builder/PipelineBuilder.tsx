@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type BuilderComponent, type BuilderKind, type BuilderSpec, type BuilderType } from '../../api-client/client'
@@ -11,6 +11,7 @@ import { ComponentForm } from './ComponentForm'
 import { LibraryItemEditor } from './LibraryItemEditor'
 import { promptDialog } from '../../lib/dialog'
 import { Select } from '../../components/Select'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 const EMPTY: BuilderSpec = { sources: [], processors: [], destinations: [] }
 
@@ -120,9 +121,7 @@ function BuilderBody({
   if (catalog.error) return <ErrorNote error={catalog.error} />
   return (
     <div className="space-y-4">
-      <Link to={configId ? `/configs/${configId}` : '/configs'} className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> {configName ?? 'Configs'}
-      </Link>
+      <Breadcrumbs items={configId ? [{ label: 'Configs', to: '/configs' }, { label: configName ?? 'Config', to: `/configs/${configId}` }, { label: 'Edit in the builder' }] : [{ label: 'Configs', to: '/configs' }, { label: 'Build a config' }]} />
       <div>
         <h1 className="text-lg font-semibold">{configId ? `Edit ${configName} in the builder` : 'Build a config'}</h1>
         <p className="text-xs text-muted">

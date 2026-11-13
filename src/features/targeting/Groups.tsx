@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Tags } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Group, type Selector } from '../../api-client/client'
@@ -11,6 +11,7 @@ import { ErrorNote, PageHeader } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
 import { GroupConfigForm } from './GroupConfigForm'
 import { confirmDialog } from '../../lib/dialog'
+import { EmptyState } from '../../components/EmptyState'
 
 /** Create or edit a group, in a dialog. */
 function GroupForm({ group, onClose }: { group: Group | null; onClose: () => void }) {
@@ -112,6 +113,25 @@ export function Groups() {
         }
       />
 
+      {groups.data?.groups.length === 0 ? (
+        <EmptyState
+          icon={Tags}
+          title="No groups yet"
+          action={
+            can('operator') && (
+              <button className="btn btn-primary" onClick={() => setForm('new')}>
+                <Plus size={14} /> New group
+              </button>
+            )
+          }
+        >
+          <p>
+            A group is a saved target such as "prod collectors on AWS". Any collector whose attributes match belongs to it, including ones
+            that connect later. Use groups to filter the fleet, to target bulk pushes, and to give matching collectors a config
+            automatically.
+          </p>
+        </EmptyState>
+      ) : (
       <div className="card overflow-auto">
         {groups.error ? (
           <ErrorNote error={groups.error} />
@@ -124,7 +144,9 @@ export function Groups() {
                 <th>Matches</th>
                 <th>Agents now</th>
                 <th>Config</th>
-                <th />
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -189,6 +211,7 @@ export function Groups() {
         )}
         {remove.error && <p className="p-3 text-xs text-danger">{remove.error.message}</p>}
       </div>
+      )}
 
       <Modal
         open={form !== null}

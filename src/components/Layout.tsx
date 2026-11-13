@@ -2,12 +2,16 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Server, ShieldCheck, Tags, Users, type LucideIcon } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, Keyboard, LayoutDashboard, LogOut, Network, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Search, Server, ShieldCheck, Tags, Users, type LucideIcon } from 'lucide-react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
 import { useAuth } from '../auth/AuthProvider'
 import { LogoMark, ThemeSwitch, Wordmark } from './Brand'
+import { Notifier } from './Notifier'
+import { SearchPalette } from './SearchPalette'
+import { ShortcutHelp } from './Shortcuts'
+import { useShortcuts } from '../lib/shortcuts'
 
 const REFRESH_THROTTLE_MS = 5000
 
@@ -27,7 +31,12 @@ function useLiveAgentUpdates() {
         void qc.invalidateQueries({ queryKey: ['summary'] })
       }, REFRESH_THROTTLE_MS)
     }
+    // A page kept in the browser's back/forward cache would keep its stream open. Browsers allow only six
+    // connections to a host, so a handful of reloads would leave none for the next page and it would hang.
+    const close = () => es.close()
+    window.addEventListener('pagehide', close)
     return () => {
+      window.removeEventListener('pagehide', close)
       clearTimeout(timer)
       es.close()
     }
@@ -45,7 +54,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { to: '/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/agents', label: 'Fleet', icon: Server },
+  { to: '/topology', label: 'Topology', icon: Network },
   { to: '/configs', label: 'Configs', icon: FileCode },
   { to: '/groups', label: 'Groups', icon: Tags },
   { to: '/rollouts', label: 'Bulk push', icon: Rocket },
@@ -183,9 +194,21 @@ export function Layout() {
   const roleText = user?.admin ? 'Admin' : user?.role || `${user?.projects.length ?? 0} project${user?.projects.length === 1 ? '' : 's'}`
 
   const active = useActive()
+  const [searching, setSearching] = useState(false)
+  const [showingHelp, setShowingHelp] = useState(false)
+  const openSearch = useCallback(() => setSearching(true), [])
+  const openHelp = useCallback(() => setShowingHelp(true), [])
+  useShortcuts(openSearch, openHelp)
 
   return (
     <Tooltip.Provider delayDuration={200}>
+      {/* Keyboard users can jump past the navigation. */}
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[70] focus:rounded focus:bg-panel focus:px-3 focus:py-2 focus:shadow-lg">
+        Skip to content
+      </a>
+      <Notifier />
+      <SearchPalette open={searching} onClose={() => setSearching(false)} />
+      <ShortcutHelp open={showingHelp} onClose={() => setShowingHelp(false)} />
       <div className="flex h-full">
         <aside
           className={clsx('flex shrink-0 flex-col border-r border-border bg-sidebar p-3 transition-[width] duration-150', collapsed ? 'w-14' : 'w-56')}
@@ -195,6 +218,25 @@ export function Layout() {
             <LogoMark />
             {!collapsed && <Wordmark />}
           </div>
+          <Tip label="Search (/)" show={collapsed}>
+            <button
+              className={clsx(
+                'mb-3 flex h-8 items-center gap-2 rounded-md border border-border bg-panel text-muted hover:border-border-strong hover:text-fg',
+                collapsed ? 'justify-center' : 'px-2.5',
+              )}
+              onClick={openSearch}
+              aria-label="Search"
+              aria-keyshortcuts="/"
+            >
+              <Search size={14} className="shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">Search</span>
+                  <kbd className="rounded border border-border px-1 font-mono text-[11px]">/</kbd>
+                </>
+              )}
+            </button>
+          </Tip>
           <nav className="flex-1 space-y-1 overflow-y-auto">
             {NAV.map(({ to, label, icon: Icon }) => (
               <Tip key={to} label={label} show={collapsed}>
@@ -210,6 +252,11 @@ export function Layout() {
             <div className="pb-3">
               <ThemeSwitch />
             </div>
+          )}
+          {!collapsed && (
+            <button className="mb-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted hover:bg-hover hover:text-fg" onClick={openHelp}>
+              <Keyboard size={15} /> Keyboard shortcuts
+            </button>
           )}
           <Tip label="Expand sidebar" show={collapsed}>
             <button
@@ -243,7 +290,7 @@ export function Layout() {
             </Tip>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 overflow-auto p-6">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-auto p-6 outline-none">
           <Outlet />
         </main>
       </div>

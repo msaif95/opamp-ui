@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
+import { Download } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
 import { ErrorNote, PageHeader } from '../../components/ui'
@@ -7,6 +8,8 @@ const PAGE = 100
 
 export function AuditLog() {
   const verify = useMutation({ mutationFn: api.verifyAudit })
+  // Downloads what the current search matches (everything when the search is empty), up to 100,000 events.
+  const exporting = useMutation({ mutationFn: (format: 'csv' | 'json') => api.exportAudit(search, format) })
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
 
@@ -31,6 +34,11 @@ export function AuditLog() {
           <form onSubmit={submit} className="flex gap-2">
             <input className="input w-72" placeholder="Search action, user or target" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Search the audit log" />
             <button className="btn">Search</button>
+            {(['csv', 'json'] as const).map((format) => (
+              <button key={format} type="button" className="btn" disabled={exporting.isPending} onClick={() => exporting.mutate(format)}>
+                <Download size={14} /> {format.toUpperCase()}
+              </button>
+            ))}
             <button type="button" className="btn" disabled={verify.isPending} onClick={() => verify.mutate()}>
               {verify.isPending ? 'Checking…' : 'Check integrity'}
             </button>
@@ -47,6 +55,7 @@ export function AuditLog() {
           </p>
         ))}
       {verify.error && <ErrorNote error={verify.error} />}
+      {exporting.error && <ErrorNote error={exporting.error} />}
       <div className="card overflow-auto">
         {log.error ? (
           <ErrorNote error={log.error} />

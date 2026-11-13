@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { ProjectSelect } from '../../components/ProjectSelect'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../api-client/client'
 import { IssueList, YamlEditor } from './parts'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 const STARTER = `receivers:
   otlp:
@@ -46,9 +46,7 @@ export function NewConfig() {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <Link to="/configs" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Configs
-      </Link>
+      <Breadcrumbs items={[{ label: 'Configs', to: '/configs' }, { label: 'New config' }]} />
       <h1 className="text-lg font-semibold">New config</h1>
       <div className="flex flex-wrap gap-3">
         <label className="space-y-1">
@@ -62,7 +60,7 @@ export function NewConfig() {
         </label>
       </div>
       <div className="card">
-        <YamlEditor value={body} onChange={setBody} />
+        <YamlEditor value={body} onChange={setBody} project={project ?? null} />
       </div>
       {err instanceof ApiError && err.issues.length > 0 ? <IssueList issues={err.issues} /> : err && <p className="text-xs text-danger">{err.message}</p>}
       <button className="btn btn-primary" disabled={!name.trim() || create.isPending}>

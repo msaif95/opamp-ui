@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type Issue } from '../../api-client/client'
@@ -9,6 +8,7 @@ import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { DiffView, IssueList, OriginBadge, YamlEditor } from './parts'
 import { confirmDialog } from '../../lib/dialog'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 export function ConfigDetail() {
   const { id = '' } = useParams()
@@ -73,9 +73,7 @@ export function ConfigDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/configs" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Configs
-      </Link>
+      <Breadcrumbs items={[{ label: 'Configs', to: '/configs' }, { label: config?.name ?? 'Config' }]} />
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -155,7 +153,7 @@ export function ConfigDetail() {
             ) : showDiff ? (
               <DiffView before={dirty ? saved : (previous.data?.body ?? '')} after={body} />
             ) : (
-              <YamlEditor value={body} onChange={setDraft} readOnly={!editable} />
+              <YamlEditor value={body} onChange={setDraft} readOnly={!editable} project={config?.project_id ?? null} />
             )}
           </div>
 

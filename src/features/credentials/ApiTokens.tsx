@@ -111,7 +111,9 @@ export function ApiTokens() {
                 <th>Status</th>
                 <th>Last used</th>
                 <th>Created by</th>
-                <th />
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

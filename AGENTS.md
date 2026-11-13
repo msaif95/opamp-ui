@@ -38,3 +38,17 @@ with its own theme.
   one `PageHeader`, then per tab a `TabIntro` (what it is + its main action) and one table.
 - Fleet filters are linked: a group belongs to one project, so picking a group sets the project filter, picking a
   project limits the group list and clears a group from another project, and the summary cards take both.
+- Notifications: `toast()` from `lib/toast` (rendered by `<ToastHost />`). `components/Notifier` raises them by
+  comparing each poll of rollouts, the summary and (admins) alerts with the previous one; collectors are announced
+  as counts, never one by one. The SSE stream carries no detail, by design.
+- Navigation aids: `Breadcrumbs` on every page below a list; `EmptyState` in place of an empty table; global search
+  (`SearchPalette`, `/` or Ctrl/Cmd+K); shortcuts in `lib/shortcuts.ts` (add new pages to `GO_TO`), which stay off
+  while focus is in a field, dialog, menu or listbox.
+- The fleet page reads its initial filters from the address (`?view=`, `?attr=k=v`, `?q=`, `?group=`, `?project=`);
+  link to it that way from other pages.
+- Accessibility: run axe over every page in both themes before finishing UI work (script kept outside the repo; it
+  logs in, visits each route, opens the search, help and a form dialog). The baseline is zero violations for WCAG
+  2.x A/AA and best practices. Token colours in `index.css` were tuned for 4.5:1 on badges; check contrast when
+  changing them. Table header cells need text (use `sr-only`), charts inside links need `accessibilityLayer={false}`.
+- The event stream is closed on `pagehide`: browsers allow six connections per host, and pages kept in the
+  back/forward cache otherwise hold theirs until new pages hang.

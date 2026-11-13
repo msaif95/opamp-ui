@@ -15,7 +15,18 @@ export function Tabs({ tabs, label }: { tabs: TabDef[]; label: string }) {
   const [params, setParams] = useSearchParams()
   const current = tabs.some((t) => t.value === params.get('tab')) ? params.get('tab')! : tabs[0].value
   return (
-    <RadixTabs.Root value={current} onValueChange={(v) => setParams(v === tabs[0].value ? {} : { tab: v }, { replace: true })}>
+    <RadixTabs.Root value={current} onValueChange={(v) =>
+        // Only the tab changes; anything else in the address (which collectors, which filters) stays.
+        setParams(
+          (previous) => {
+            const next = new URLSearchParams(previous)
+            if (v === tabs[0].value) next.delete('tab')
+            else next.set('tab', v)
+            return next
+          },
+          { replace: true },
+        )
+      }>
       <RadixTabs.List className="flex gap-1 border-b border-border" aria-label={label}>
         {tabs.map((t) => (
           <RadixTabs.Trigger

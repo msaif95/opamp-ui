@@ -29,7 +29,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden">
+    <main className="relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden">
+      <h1 className="sr-only">Sign in to OpAMP Fleet</h1>
       <div className="brand-gradient pointer-events-none absolute -top-40 h-80 w-[40rem] rounded-full opacity-20 blur-3xl" aria-hidden="true" />
       <div className="relative flex flex-col items-center gap-3">
         <LogoMark size={44} />
@@ -79,6 +80,6 @@ export function LoginPage() {
       <div className="relative w-32">
         <ThemeSwitch />
       </div>
-    </div>
+    </main>
   )
 }

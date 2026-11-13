@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { GitCompareArrows } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, CAP_ACCEPTS_REMOTE_CONFIG } from '../../api-client/client'
@@ -11,6 +11,7 @@ import { AgentActions } from './AgentActions'
 import { AgentActivity } from './AgentActivity'
 import { CollectorCharts } from './CollectorCharts'
 import { PushConfig } from './PushConfig'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -31,15 +32,18 @@ export function AgentDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/agents" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Fleet
-      </Link>
+      <Breadcrumbs items={[{ label: 'Fleet', to: '/agents' }, { label: a.attributes['host.name'] ?? a.instance_uid }]} />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">{a.attributes['host.name'] ?? a.instance_uid}</h1>
           <AgentStatus agent={a} />
         </div>
-        {canIn(a.project_id, 'operator') && <AgentActions agent={a} />}
+        <div className="flex items-center gap-2">
+          <Link to={`/agents/compare?a=${a.instance_uid}`} className="btn">
+            <GitCompareArrows size={14} /> Compare with…
+          </Link>
+          {canIn(a.project_id, 'operator') && <AgentActions agent={a} />}
+        </div>
       </div>
 
       <Tabs

@@ -47,7 +47,9 @@ function Members({ project }: { project: Project }) {
               <th>Sign-in name</th>
               <th>Role in this project</th>
               <th>Added</th>
-              <th />
+              <th>
+                  <span className="sr-only">Actions</span>
+                </th>
             </tr>
           </thead>
           <tbody>
@@ -184,7 +186,9 @@ export function Projects() {
                 <th>Collectors</th>
                 <th>People</th>
                 <th>Created</th>
-                <th />
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

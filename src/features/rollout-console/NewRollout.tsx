@@ -1,8 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectSelect } from '../../components/ProjectSelect'
@@ -10,6 +9,7 @@ import { SelectorPicker } from '../../components/SelectorPicker'
 import { parseSteps } from '../../lib/steps'
 import { confirmDialog } from '../../lib/dialog'
 import { Select } from '../../components/Select'
+import { Breadcrumbs } from '../../components/Breadcrumbs'
 
 export function NewRollout() {
   const navigate = useNavigate()
@@ -89,9 +89,7 @@ export function NewRollout() {
 
   return (
     <div className="max-w-4xl space-y-4">
-      <Link to="/rollouts" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} /> Bulk push
-      </Link>
+      <Breadcrumbs items={[{ label: 'Bulk push', to: '/rollouts' }, { label: 'New bulk push' }]} />
       <h1 className="text-lg font-semibold">New bulk push</h1>
 
       <section className="card space-y-3 p-4">

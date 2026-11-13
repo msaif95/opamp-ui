@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { FileCode, Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -7,6 +7,7 @@ import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { OriginBadge } from './parts'
+import { EmptyState } from '../../components/EmptyState'
 
 export function ConfigList() {
   const navigate = useNavigate()
@@ -32,6 +33,29 @@ export function ConfigList() {
           )
         }
       />
+      {data?.configs.length === 0 ? (
+        <EmptyState
+          icon={FileCode}
+          title="No configs yet"
+          action={
+            can('operator') && (
+              <>
+                <Link to="/configs/build" className="btn btn-primary">
+                  <Plus size={14} /> Build a config
+                </Link>
+                <Link to="/configs/new" className="btn">
+                  Write YAML
+                </Link>
+              </>
+            )
+          }
+        >
+          <p>
+            A config is the collector's pipeline: where telemetry comes from, how it is processed and where it goes. Build one from a
+            catalog of sources, processors and destinations, or paste YAML you already have. Every save is kept as a version.
+          </p>
+        </EmptyState>
+      ) : (
       <div className="card overflow-auto">
         {error ? (
           <ErrorNote error={error} />
@@ -88,6 +112,7 @@ export function ConfigList() {
           </table>
         )}
       </div>
+      )}
     </div>
   )
 }
