@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { api, type ApiKey } from '../../api-client/client'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { ApiTokens } from './ApiTokens'
 import { RevokedCerts } from './RevokedCerts'
 
 function keyState(k: ApiKey) {
@@ -120,6 +121,7 @@ export function Credentials() {
       </div>
 
       <RevokedCerts />
+      <ApiTokens />
     </div>
   )
 }

@@ -43,6 +43,20 @@ export interface MetricPoint {
   failed: number
 }
 
+/** A long-lived token for the CLI and automation. */
+export interface ApiToken {
+  id: string
+  name: string
+  role: Role
+  created_by: string
+  created_at: string
+  expires_at: string | null
+  revoked_at: string | null
+  last_used_at: string | null
+  /** Only present in the response to creating it. */
+  secret?: string
+}
+
 export interface DesiredConfig {
   version_id: string
   template_id: string
@@ -443,6 +457,10 @@ export const api = {
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
   issueApiKey: (name: string, expiresAt: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),
+  apiTokens: () => request<{ tokens: ApiToken[] }>('/auth/tokens'),
+  createApiToken: (name: string, role: Role, expires_days: number) =>
+    request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days }) }),
+  revokeApiToken: (id: string) => request<void>(`/auth/tokens/${id}`, { method: 'DELETE' }),
   installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number }) =>
     request<{ script: string; api_key_id: string }>('/agents/install-command', { method: 'POST', body: JSON.stringify(req) }),
   revokedCerts: () => request<{ revoked_certs: RevokedCert[] }>('/credentials/revoked-certs'),
