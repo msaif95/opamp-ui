@@ -105,18 +105,33 @@ export interface SystemStatus {
   version: string
   /** Production safety checks are switched off. */
   dev_mode: boolean
-  sso: boolean
   sso_issuer: string
-  local_login: boolean
-  agent_tls: boolean
-  agent_mtls: boolean
-  alert_webhook: boolean
-  telemetry: boolean
-  rebalancing: boolean
-  /** Fleet-health alert limits in percent; 0 means off. */
+  /** Fleet-health alert limits in percent; 0 means the rule is not configured. */
   alert_offline_pct: number
   alert_unhealthy_pct: number
   agent_offline_after_seconds: number
+}
+
+export type ProtectionKey =
+  | 'sso'
+  | 'local_login'
+  | 'agent_tls'
+  | 'agent_mtls'
+  | 'alert_delivery'
+  | 'telemetry'
+  | 'rebalancing'
+  | 'fleet_health_alerts'
+
+export interface Protection {
+  key: ProtectionKey
+  /** The deployment configured this feature, so it can be switched on. */
+  available: boolean
+  /** Shown but not changeable at runtime. */
+  locked: boolean
+  /** The administrator's switch; in effect only when also available. */
+  enabled: boolean
+  updated_by: string | null
+  updated_at: string | null
 }
 
 export interface Replica {
@@ -129,11 +144,12 @@ export interface Replica {
 export interface SystemAlert {
   at: string
   text: string
-  delivery: 'sent' | 'failed' | 'not_configured'
+  delivery: 'sent' | 'failed' | 'not_configured' | 'disabled'
 }
 
 export interface SystemInfo {
   status: SystemStatus
+  protections: Protection[]
   replicas: Replica[]
   alerts: SystemAlert[]
 }
@@ -304,6 +320,8 @@ export const api = {
   validateConfig: (body: string) =>
     request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),
   system: () => request<SystemInfo>('/system'),
+  setProtection: (key: ProtectionKey, enabled: boolean) =>
+    request<void>(`/system/settings/${key}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
   authConfig: () => request<AuthConfig>('/auth/config'),
   groups: () => request<{ groups: Group[] }>('/groups'),
   createGroup: (name: string, description: string, selector: Selector) =>

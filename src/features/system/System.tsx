@@ -1,84 +1,159 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import clsx from 'clsx'
 import type { ReactNode } from 'react'
-import { api, type SystemAlert, type SystemStatus } from '../../api-client/client'
+import { api, type Protection, type ProtectionKey, type SystemAlert, type SystemStatus } from '../../api-client/client'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 
 const REFRESH_MS = 10_000
 
-interface Check {
+interface Copy {
   name: string
-  on: boolean
-  /** Off is a risk in production (shown in red) rather than just an unused option. */
-  required: boolean
-  detail: string
+  /** What it means while in effect. */
+  on: string
+  /** What it means while an administrator has it switched off. */
+  off: string
+  /** What is missing from the deployment when it cannot be switched on. */
+  unavailable: string
+  /** Asked before switching off, for switches that can lock people or agents out. */
+  confirmOff?: string
+  /** Off is a risk in production rather than just an unused option. */
+  important: boolean
 }
 
-function checks(s: SystemStatus): Check[] {
-  return [
-    {
-      name: 'Single sign-on (Okta)',
-      on: s.sso,
-      required: true,
-      detail: s.sso ? `Users sign in through ${s.sso_issuer}; roles come from their groups.` : 'Not configured. Only the local administrator can sign in.',
-    },
-    {
-      name: 'Local administrator login',
-      on: s.local_login,
-      required: false,
-      detail: s.local_login
-        ? 'Break-glass login is available. Ten failed attempts from one address lock it out for five minutes.'
-        : 'Disabled. If single sign-on is unavailable nobody can sign in.',
-    },
-    {
-      name: 'TLS for agent connections',
-      on: s.agent_tls,
-      required: true,
-      detail: s.agent_tls ? 'Agents connect over TLS.' : 'Agents connect in plaintext. Acceptable for local development only.',
-    },
-    {
-      name: 'Agent client certificates (mTLS)',
-      on: s.agent_mtls,
-      required: false,
-      detail: s.agent_mtls
-        ? 'Agents may authenticate with a certificate from the trusted CA, or with an API key.'
-        : 'Off. Agents can authenticate with API keys only.',
-    },
-    {
-      name: 'Alert delivery',
-      on: s.alert_webhook,
-      required: true,
-      detail: s.alert_webhook ? 'Bulk push alerts are sent to the configured webhook.' : 'No webhook configured. Alerts are only listed on this page.',
-    },
-    {
-      name: 'Monitoring export',
-      on: s.telemetry,
-      required: true,
-      detail: s.telemetry ? "The backend exports its own metrics and traces." : 'Off. The backend is not exporting metrics or traces.',
-    },
-    {
-      name: 'Connection rebalancing',
-      on: s.rebalancing,
-      required: false,
-      detail: s.rebalancing
-        ? 'A replica holding well over its share closes some agent connections so they reconnect to emptier replicas.'
-        : 'Off. A restarted or added replica stays under-loaded until agents happen to reconnect.',
-    },
-    {
-      name: 'Fleet health alerts',
-      on: s.alert_offline_pct > 0 || s.alert_unhealthy_pct > 0,
-      required: true,
-      detail:
-        [
-          s.alert_offline_pct > 0 && `${s.alert_offline_pct}% of agents go offline within an hour`,
-          s.alert_unhealthy_pct > 0 && `${s.alert_unhealthy_pct}% of connected agents report unhealthy`,
-        ]
-          .filter(Boolean)
-          .join(', or ')
-          .replace(/^(.)/, (c) => `Alerts when ${c}`)
-          .replace(/(.)$/, '$1.') || 'Off. No alert is raised when agents go offline or turn unhealthy.',
-    },
+function copy(s: SystemStatus): Record<ProtectionKey, Copy> {
+  const limits = [
+    s.alert_offline_pct > 0 && `${s.alert_offline_pct}% of agents go offline within an hour`,
+    s.alert_unhealthy_pct > 0 && `${s.alert_unhealthy_pct}% of connected agents report unhealthy`,
   ]
+    .filter(Boolean)
+    .join(', or ')
+  return {
+    sso: {
+      name: 'Single sign-on (Okta)',
+      on: `Users sign in through ${s.sso_issuer}; roles come from their groups.`,
+      off: 'Switched off. The Okta button is hidden and Okta sign-ins are refused. People already signed in stay signed in until their session expires.',
+      unavailable: 'Not set up in the deployment (no Okta issuer). Only the local administrator can sign in.',
+      confirmOff: 'Switch off single sign-on? Only the local administrator will be able to sign in.',
+      important: true,
+    },
+    local_login: {
+      name: 'Local administrator login',
+      on: 'Break-glass login is available. Ten failed attempts from one address lock it out for five minutes.',
+      off: 'Switched off. If single sign-on becomes unavailable nobody can sign in.',
+      unavailable: 'Not set up in the deployment (no local administrator password).',
+      confirmOff: 'Switch off the local administrator login? If Okta becomes unavailable nobody will be able to sign in.',
+      important: false,
+    },
+    agent_tls: {
+      name: 'TLS for agent connections',
+      on: 'Agents connect over TLS. Set in the deployment; it cannot be changed here.',
+      off: '',
+      unavailable: 'Agents connect in plaintext. Acceptable for local development only. Set in the deployment; it cannot be changed here.',
+      important: true,
+    },
+    agent_mtls: {
+      name: 'Agent client certificates (mTLS)',
+      on: 'Agents may authenticate with a certificate from the trusted CA, or with an API key.',
+      off: 'Switched off. Certificates are ignored: agents need an API key, and agents connected with a certificate are disconnected within about 30 seconds.',
+      unavailable: 'Not set up in the deployment (no client CA). Agents authenticate with API keys only.',
+      confirmOff:
+        'Switch off client certificates? Every agent that connects with a certificate is disconnected within about 30 seconds and stays out until this is switched back on.',
+      important: false,
+    },
+    alert_delivery: {
+      name: 'Alert delivery',
+      on: 'Alerts are sent to the configured webhook.',
+      off: 'Switched off. Alerts are still listed below but not sent to the webhook.',
+      unavailable: 'Not set up in the deployment (no webhook). Alerts are only listed on this page.',
+      important: true,
+    },
+    telemetry: {
+      name: 'Monitoring export',
+      on: 'The backend exports its own metrics and traces.',
+      off: 'Switched off. Metrics and traces are collected but not sent.',
+      unavailable: 'Not set up in the deployment (no export endpoint).',
+      important: true,
+    },
+    rebalancing: {
+      name: 'Connection rebalancing',
+      on: 'A replica holding well over its share closes some agent connections so they reconnect to emptier replicas.',
+      off: 'Switched off. A restarted or added replica stays under-loaded until agents happen to reconnect.',
+      unavailable: '',
+      important: false,
+    },
+    fleet_health_alerts: {
+      name: 'Fleet health alerts',
+      on: `Alerts when ${limits}.`,
+      off: 'Switched off. No alert is raised when agents go offline or turn unhealthy.',
+      unavailable: 'Not set up in the deployment (both limits are 0).',
+      important: true,
+    },
+  }
+}
+
+function Switch({ on, disabled, label, onChange }: { on: boolean; disabled: boolean; label: string; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      className={clsx(
+        'relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+        on ? 'bg-accent' : 'bg-border-strong',
+      )}
+    >
+      <span className={clsx('absolute top-0.5 h-4 w-4 rounded-full bg-panel shadow transition-all', on ? 'left-[18px]' : 'left-0.5')} />
+    </button>
+  )
+}
+
+function ProtectionRow({ p, text }: { p: Protection; text: Copy }) {
+  const qc = useQueryClient()
+  const set = useMutation({
+    mutationFn: (enabled: boolean) => api.setProtection(p.key, enabled),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['system'] }),
+  })
+  const inEffect = p.available && p.enabled
+  const toggle = () => {
+    if (inEffect && text.confirmOff && !confirm(text.confirmOff)) return
+    set.mutate(!p.enabled)
+  }
+  return (
+    <li className="flex items-start gap-4 border-b border-border px-4 py-2.5 last:border-b-0">
+      <span className="w-28 shrink-0 pt-0.5">
+        {inEffect ? (
+          <Badge tone="success">On</Badge>
+        ) : p.available ? (
+          <Badge tone={text.important ? 'danger' : 'neutral'}>Switched off</Badge>
+        ) : (
+          <Badge tone={text.important ? 'danger' : 'neutral'}>Not set up</Badge>
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="font-medium">{text.name}</div>
+        <div className="text-xs text-muted">{inEffect ? text.on : p.available ? text.off : text.unavailable}</div>
+        {p.updated_by && p.updated_at && (
+          <div className="text-xs text-faint">
+            Last changed by {p.updated_by}, {timeAgo(p.updated_at)}
+          </div>
+        )}
+        {set.error && <div className="text-xs text-danger">{set.error.message}</div>}
+      </div>
+      {!p.locked && (
+        <Switch
+          on={inEffect}
+          // Something not set up in the deployment cannot be switched on from here.
+          disabled={!p.available || set.isPending}
+          label={text.name}
+          onChange={toggle}
+        />
+      )}
+    </li>
+  )
 }
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -96,6 +171,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 function delivery(a: SystemAlert) {
   if (a.delivery === 'sent') return <Badge tone="success">Sent</Badge>
   if (a.delivery === 'failed') return <Badge tone="danger">Delivery failed</Badge>
+  if (a.delivery === 'disabled') return <Badge tone="warning">Delivery switched off</Badge>
   return <Badge tone="neutral">Not sent</Badge>
 }
 
@@ -111,6 +187,7 @@ export function System() {
   if (error) return <ErrorNote error={error} />
   if (!data) return <p className="text-muted">Loading…</p>
 
+  const texts = copy(data.status)
   const total = data.replicas.reduce((n, r) => n + r.connections, 0)
   // With several replicas, one holding far fewer agents than its share usually just restarted.
   const share = data.replicas.length > 0 ? total / data.replicas.length : 0
@@ -128,18 +205,10 @@ export function System() {
         </p>
       )}
 
-      <Section title="Protections" hint="How this deployment is configured. Change these in the backend's environment or Helm values.">
+      <Section title="Protections" hint="Switches apply to every backend replica within a few seconds, without a restart, and are recorded in the audit log. A protection that is not set up in the deployment has to be configured there first.">
         <ul>
-          {checks(data.status).map((c) => (
-            <li key={c.name} className="flex items-start gap-4 border-b border-border px-4 py-2.5 last:border-b-0">
-              <span className="w-16 shrink-0 pt-0.5">
-                {c.on ? <Badge tone="success">On</Badge> : <Badge tone={c.required ? 'danger' : 'neutral'}>Off</Badge>}
-              </span>
-              <div>
-                <div className="font-medium">{c.name}</div>
-                <div className="text-xs text-muted">{c.detail}</div>
-              </div>
-            </li>
+          {data.protections.map((p) => (
+            <ProtectionRow key={p.key} p={p} text={texts[p.key]} />
           ))}
         </ul>
       </Section>
