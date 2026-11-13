@@ -60,9 +60,44 @@ export interface ConfigVersion {
   description: string
   origin: 'ui' | 'git'
   git_commit_sha: string | null
+  /** The pipeline as built in the config builder; absent for versions written as YAML. */
+  builder_spec?: BuilderSpec
   /** Only present in the version list of a config, and only when non-zero. */
   assigned_agents?: number
   created_at: string
+}
+
+export type BuilderKind = 'source' | 'processor' | 'destination'
+export type BuilderValue = string | number | boolean | string[] | Record<string, string>
+
+export interface BuilderField {
+  key: string
+  label: string
+  type: 'string' | 'int' | 'number' | 'bool' | 'enum' | 'multi' | 'list' | 'map'
+  required: boolean
+  default?: BuilderValue
+  options?: string[]
+  help?: string
+}
+
+export interface BuilderType {
+  kind: BuilderKind
+  type: string
+  label: string
+  description: string
+  signals: string[]
+  fields: BuilderField[]
+}
+
+export interface BuilderComponent {
+  type: string
+  params: Record<string, BuilderValue>
+}
+
+export interface BuilderSpec {
+  sources: BuilderComponent[]
+  processors: BuilderComponent[]
+  destinations: BuilderComponent[]
 }
 
 export interface Issue {
@@ -324,6 +359,16 @@ export const api = {
     }),
   addConfigVersion: (id: string, body: string, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ body, description }) }),
+  builderCatalog: () => request<{ types: BuilderType[] }>('/configs/builder/catalog'),
+  builderRender: (spec: BuilderSpec) =>
+    request<{ body: string; issues: Issue[] }>('/configs/builder/render', { method: 'POST', body: JSON.stringify(spec) }),
+  createBuiltConfig: (name: string, description: string, builder: BuilderSpec) =>
+    request<{ config: ConfigTemplate; version: ConfigVersion }>('/configs', {
+      method: 'POST',
+      body: JSON.stringify({ name, description, builder }),
+    }),
+  addBuiltVersion: (id: string, builder: BuilderSpec, description: string) =>
+    request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ builder, description }) }),
   deleteConfig: (id: string) => request<void>(`/configs/${id}`, { method: 'DELETE' }),
   validateConfig: (body: string) =>
     request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),

@@ -163,6 +163,11 @@ export function ConfigDetail() {
           )}
 
           <div className="flex flex-wrap items-center gap-2">
+            {editable && version.data?.builder_spec && versionNo === config.latest_version && (
+              <Link to={`/configs/${id}/build`} className="btn btn-primary">
+                Edit in builder
+              </Link>
+            )}
             <button className="btn" disabled={validate.isPending || !body} onClick={() => validate.mutate()}>
               Validate
             </button>

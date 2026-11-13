@@ -8,6 +8,7 @@ import { AgentDetail } from './features/agent-detail/AgentDetail'
 import { ConfigDetail } from './features/config-editor/ConfigDetail'
 import { ConfigList } from './features/config-editor/ConfigList'
 import { NewConfig } from './features/config-editor/NewConfig'
+import { PipelineBuilder } from './features/config-builder/PipelineBuilder'
 import { Credentials } from './features/credentials/Credentials'
 import { AuditLog } from './features/audit-log/AuditLog'
 import { InstallCollector } from './features/install/InstallCollector'
@@ -33,6 +34,8 @@ function Shell() {
         <Route path="/agents/:uid" element={<AgentDetail />} />
         <Route path="/configs" element={<ConfigList />} />
         {can('operator') && <Route path="/configs/new" element={<NewConfig />} />}
+        {can('operator') && <Route path="/configs/build" element={<PipelineBuilder />} />}
+        {can('operator') && <Route path="/configs/:id/build" element={<PipelineBuilder />} />}
         <Route path="/configs/:id" element={<ConfigDetail />} />
         <Route path="/groups" element={<Groups />} />
         {can('admin') && <Route path="/audit" element={<AuditLog />} />}

@@ -17,9 +17,14 @@ export function ConfigList() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Configs</h1>
         {can('operator') && (
-          <Link to="/configs/new" className="btn btn-primary">
-            <Plus size={14} /> New config
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/configs/new" className="btn">
+              Write YAML
+            </Link>
+            <Link to="/configs/build" className="btn btn-primary">
+              <Plus size={14} /> Build a config
+            </Link>
+          </div>
         )}
       </div>
       <div className="card overflow-auto">

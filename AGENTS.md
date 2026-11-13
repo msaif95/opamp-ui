@@ -19,3 +19,5 @@ with its own theme.
   `OPAMP_BACKEND_URL`.
 - The production CSP (`docker/nginx.conf`) forbids inline scripts: the theme bootstrap is `public/theme-init.js`,
   not an inline `<script>`. Keep it that way.
+- Config builder: `src/features/config-builder`. Forms are generated from the backend catalog; add component
+  types in the backend, not here.
