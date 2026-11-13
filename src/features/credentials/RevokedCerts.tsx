@@ -1,61 +1,82 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
+import { Modal } from '../../components/Dialogs'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { confirmDialog } from '../../lib/dialog'
 
-/** Blocks individual agent client certificates that would otherwise be trusted because they chain to the CA. */
-export function RevokedCerts() {
+/** Paste a certificate to block it, in a dialog. */
+function RevokeCert({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [pem, setPem] = useState('')
-
-  const certs = useQuery({ queryKey: ['revoked-certs'], queryFn: api.revokedCerts })
   const revoke = useMutation({
     mutationFn: () => api.revokeCert(name.trim(), pem.trim()),
-    onSuccess: () => {
-      setName('')
-      setPem('')
-      return qc.invalidateQueries({ queryKey: ['revoked-certs'] })
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['revoked-certs'] })
+      onClose()
     },
   })
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    void confirmDialog('Revoke this certificate? An agent using it is disconnected within about 30 seconds and cannot reconnect. This cannot be undone here.').then((ok) => ok && revoke.mutate())
+    void confirmDialog({
+      title: 'Revoke this certificate?',
+      body: 'An agent using it is disconnected within about 30 seconds and cannot reconnect. This cannot be undone here.',
+      action: 'Revoke',
+      danger: true,
+    }).then((ok) => ok && revoke.mutate())
   }
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <label className="block space-y-1">
+        <span className="block text-xs text-muted">Label (optional; defaults to the certificate's common name)</span>
+        <input className="input w-full" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label className="block space-y-1">
+        <span className="block text-xs text-muted">Certificate (PEM)</span>
+        <textarea
+          className="input h-40 w-full py-2 font-mono text-xs"
+          value={pem}
+          onChange={(e) => setPem(e.target.value)}
+          placeholder="-----BEGIN CERTIFICATE-----"
+          spellCheck={false}
+          autoFocus
+        />
+      </label>
+      {revoke.error && <p className="text-xs text-danger">{revoke.error.message}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn btn-danger" disabled={!pem.trim() || revoke.isPending}>
+          Revoke certificate
+        </button>
+      </div>
+    </form>
+  )
+}
+
+/** Blocks individual agent client certificates that would otherwise be trusted because they chain to the CA. */
+export function RevokedCerts() {
+  const [revoking, setRevoking] = useState(false)
+  const certs = useQuery({ queryKey: ['revoked-certs'], queryFn: api.revokedCerts })
 
   return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-base font-semibold">Revoked client certificates</h2>
-        <p className="text-xs text-muted">
-          Any certificate issued by the trusted CA can connect. Paste a certificate here to block that one certificate, for example after a
-          host is compromised.
-        </p>
-      </div>
-      <form onSubmit={submit} className="card space-y-3 p-4">
-        <label className="block space-y-1">
-          <span className="block text-xs text-muted">Label (optional; defaults to the certificate's common name)</span>
-          <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="block space-y-1">
-          <span className="block text-xs text-muted">Certificate (PEM)</span>
-          <textarea
-            className="input h-28 w-full py-2 font-mono text-xs"
-            value={pem}
-            onChange={(e) => setPem(e.target.value)}
-            placeholder="-----BEGIN CERTIFICATE-----"
-            spellCheck={false}
-          />
-        </label>
-        <div className="flex items-center gap-3">
-          <button className="btn btn-danger" disabled={!pem.trim() || revoke.isPending}>
-            Revoke certificate
-          </button>
-          {revoke.error && <span className="text-xs text-danger">{revoke.error.message}</span>}
+    <section className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold">Revoked client certificates</h2>
+          <p className="max-w-4xl text-xs text-muted">
+            Any certificate issued by the trusted CA can connect. Revoke one certificate to block it, for example after a host is
+            compromised.
+          </p>
         </div>
-      </form>
+        <button className="btn shrink-0" onClick={() => setRevoking(true)}>
+          <Plus size={14} /> Revoke a certificate
+        </button>
+      </div>
       <div className="card overflow-auto">
         {certs.error ? (
           <ErrorNote error={certs.error} />
@@ -91,6 +112,9 @@ export function RevokedCerts() {
           </table>
         )}
       </div>
+      <Modal open={revoking} onClose={() => setRevoking(false)} size="lg" title="Revoke a client certificate">
+        {revoking && <RevokeCert onClose={() => setRevoking(false)} />}
+      </Modal>
     </section>
   )
 }

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { api, type Person, type Role } from '../../api-client/client'
 import { Modal } from '../../components/Dialogs'
 import { Select } from '../../components/Select'
-import { Badge, ErrorNote } from '../../components/ui'
+import { Badge, ErrorNote, PageHeader } from '../../components/ui'
 import { confirmDialog } from '../../lib/dialog'
 import { timeAgo } from '../../lib/time'
 import { PROJECT_ROLES } from '../projects/Projects'
@@ -89,18 +89,15 @@ export function Users() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold">Users</h1>
-          <p className="text-xs text-muted">
-            Everyone who has signed in, plus people added to a project ahead of their first sign-in. A global role comes from Okta groups
-            (or the local administrator) and covers everything outside projects; admins see all projects.
-          </p>
-        </div>
-        <button className="btn btn-primary shrink-0" onClick={() => setAdding('new')}>
-          <Plus size={14} /> Add a person
-        </button>
-      </div>
+      <PageHeader
+        title="Users"
+        description="Everyone who has signed in, plus people added to a project ahead of their first sign-in. A global role comes from Okta groups (or the local administrator) and covers everything outside projects; admins see all projects."
+        action={
+          <button className="btn btn-primary" onClick={() => setAdding('new')}>
+            <Plus size={14} /> Add a person
+          </button>
+        }
+      />
 
       <input className="input w-72" placeholder="Search by name, sign-in or project" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search users" />
 

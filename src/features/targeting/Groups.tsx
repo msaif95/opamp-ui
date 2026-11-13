@@ -1,61 +1,40 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Group, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { SelectorPicker } from '../../components/SelectorPicker'
-import { ErrorNote } from '../../components/ui'
+import { Modal } from '../../components/Dialogs'
+import { ErrorNote, PageHeader } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
 import { GroupConfigForm } from './GroupConfigForm'
 import { confirmDialog } from '../../lib/dialog'
 
-export function Groups() {
+/** Create or edit a group, in a dialog. */
+function GroupForm({ group, onClose }: { group: Group | null; onClose: () => void }) {
   const qc = useQueryClient()
-  const { can, canIn } = useAuth()
-  // The group being edited; null while creating a new one.
-  const [editing, setEditing] = useState<Group | null>(null)
-  // The group whose config is being set.
-  const [assigning, setAssigning] = useState<Group | null>(null)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [selector, setSelector] = useState<Selector>({})
+  const [name, setName] = useState(group?.name ?? '')
+  const [description, setDescription] = useState(group?.description ?? '')
+  const [selector, setSelector] = useState<Selector>(group?.selector ?? {})
   // Project for a new group; an existing group stays in its project.
   const [chosenProject, setChosenProject] = useState<string | null | undefined>(undefined)
-  const hasProjects = useHasProjects()
+  const project = group ? group.project_id : (chosenProject ?? null)
   const hasSelector = Object.keys(selector).length > 0
-  const project = editing ? editing.project_id : (chosenProject ?? null)
 
-  const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
   const preview = useQuery({
     queryKey: ['agents', 'preview', selector, project],
     queryFn: () => api.previewRollout(selector, project),
     enabled: hasSelector,
     placeholderData: keepPreviousData,
   })
-  const refresh = () => qc.invalidateQueries({ queryKey: ['groups'] })
-
-  const load = (g: Group | null) => {
-    setEditing(g)
-    setName(g?.name ?? '')
-    setDescription(g?.description ?? '')
-    setSelector(g?.selector ?? {})
-  }
   const save = useMutation({
     mutationFn: () =>
-      editing
-        ? api.updateGroup(editing.id, name.trim(), description.trim(), selector)
-        : api.createGroup(name.trim(), description.trim(), selector, project),
-    onSuccess: () => {
-      load(null)
-      return refresh()
-    },
-  })
-  const remove = useMutation({
-    mutationFn: api.deleteGroup,
-    onSuccess: (_, id) => {
-      if (editing?.id === id) load(null)
-      return refresh()
+      group ? api.updateGroup(group.id, name.trim(), description.trim(), selector) : api.createGroup(name.trim(), description.trim(), selector, project),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['groups'] })
+      onClose()
     },
   })
   const submit = (e: FormEvent) => {
@@ -64,13 +43,74 @@ export function Groups() {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-semibold">Groups</h1>
-        <p className="text-xs text-muted">
-          A group is a saved target. Membership is live: any agent whose attributes match belongs to it, including agents that connect later.
-        </p>
+    <form onSubmit={submit} className="space-y-4">
+      <div className="flex flex-wrap gap-3">
+        {!group && (
+          <ProjectSelect
+            value={chosenProject}
+            onChange={(p) => {
+              // Attributes differ per project, so a selector picked for another project no longer applies.
+              setChosenProject(p)
+              setSelector({})
+            }}
+          />
+        )}
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Name</span>
+          <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. prod-emea-payments" autoFocus />
+        </label>
+        <label className="min-w-48 flex-1 space-y-1">
+          <span className="block text-xs text-muted">Description (optional)</span>
+          <input className="input w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
       </div>
+      <SelectorPicker selector={selector} onChange={setSelector} project={project} />
+      <p className="text-sm">
+        {!hasSelector ? (
+          <span className="text-muted">Pick at least one attribute value.</span>
+        ) : preview.data ? (
+          `Matches ${preview.data.total.toLocaleString()} agents right now.`
+        ) : (
+          'Counting…'
+        )}
+      </p>
+      {save.error && <p className="text-xs text-danger">{save.error.message}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" disabled={!name.trim() || !hasSelector || save.isPending}>
+          {group ? 'Save changes' : 'Create group'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+export function Groups() {
+  const qc = useQueryClient()
+  const { can, canIn } = useAuth()
+  // The dialog that is open: the create/edit form, or a group's config form.
+  const [form, setForm] = useState<Group | 'new' | null>(null)
+  const [assigning, setAssigning] = useState<Group | null>(null)
+  const hasProjects = useHasProjects()
+
+  const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
+  const remove = useMutation({ mutationFn: api.deleteGroup, onSuccess: () => qc.invalidateQueries({ queryKey: ['groups'] }) })
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Groups"
+        description="A group is a saved target. Membership is live: any agent whose attributes match belongs to it, including agents that connect later."
+        action={
+          can('operator') && (
+            <button className="btn btn-primary" onClick={() => setForm('new')}>
+              <Plus size={14} /> New group
+            </button>
+          )
+        }
+      />
 
       <div className="card overflow-auto">
         {groups.error ? (
@@ -89,7 +129,7 @@ export function Groups() {
             </thead>
             <tbody>
               {groups.data?.groups.map((g) => (
-                <tr key={g.id} className={editing?.id === g.id ? 'bg-selected' : undefined}>
+                <tr key={g.id}>
                   <td>
                     <div className="font-medium">{g.name}</div>
                     {g.description && <div className="text-xs text-muted">{g.description}</div>}
@@ -115,17 +155,19 @@ export function Groups() {
                   <td className="space-x-2 text-right whitespace-nowrap">
                     {canIn(g.project_id, 'operator') && (
                       <>
-                        <button className="btn btn-sm" onClick={() => setAssigning(assigning?.id === g.id ? null : g)}>
+                        <button className="btn btn-sm" onClick={() => setAssigning(g)}>
                           {g.config ? 'Change config' : 'Set config'}
                         </button>
-                        <button className="btn btn-sm" onClick={() => load(g)}>
+                        <button className="btn btn-sm" onClick={() => setForm(g)}>
                           Edit
                         </button>
                         <button
                           className="btn btn-sm btn-danger"
                           disabled={remove.isPending}
                           onClick={() => {
-                            void confirmDialog(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`).then((ok) => ok && remove.mutate(g.id))
+                            void confirmDialog(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`).then(
+                              (ok) => ok && remove.mutate(g.id),
+                            )
                           }}
                         >
                           Delete
@@ -145,52 +187,36 @@ export function Groups() {
             </tbody>
           </table>
         )}
+        {remove.error && <p className="p-3 text-xs text-danger">{remove.error.message}</p>}
       </div>
 
-      {can('operator') && assigning && <GroupConfigForm key={assigning.id} group={assigning} onDone={() => setAssigning(null)} />}
+      <Modal
+        open={form !== null}
+        onClose={() => setForm(null)}
+        size="xl"
+        title={form === 'new' || form === null ? 'New group' : `Edit group "${form.name}"`}
+        description={
+          form !== 'new' && form !== null
+            ? 'Changing what a group matches affects future bulk pushes only. Pushes already started keep the target they began with.'
+            : undefined
+        }
+      >
+        {form !== null && <GroupForm key={form === 'new' ? 'new' : form.id} group={form === 'new' ? null : form} onClose={() => setForm(null)} />}
+      </Modal>
 
-      {can('operator') && (
-        <form onSubmit={submit} className="card max-w-4xl space-y-4 p-4">
-          <h2 className="font-medium">{editing ? `Edit group "${editing.name}"` : 'New group'}</h2>
-          {editing && (
-            <p className="text-xs text-muted">
-              Changing what a group matches affects future bulk pushes only. Pushes already started keep the target they began with.
-            </p>
-          )}
-          <div className="flex flex-wrap gap-3">
-            {!editing && <ProjectSelect value={chosenProject} onChange={setChosenProject} />}
-            <label className="space-y-1">
-              <span className="block text-xs text-muted">Name</span>
-              <input className="input w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. prod-emea-payments" />
-            </label>
-            <label className="flex-1 space-y-1">
-              <span className="block text-xs text-muted">Description</span>
-              <input className="input w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </label>
-          </div>
-          <SelectorPicker selector={selector} onChange={setSelector} project={project} />
-          <p className="text-sm">
-            {!hasSelector ? (
-              <span className="text-muted">Pick at least one attribute value.</span>
-            ) : preview.data ? (
-              `Matches ${preview.data.total.toLocaleString()} agents right now.`
-            ) : (
-              'Counting…'
-            )}
-          </p>
-          {save.error && <p className="text-xs text-danger">{save.error.message}</p>}
-          <div className="flex gap-2">
-            <button className="btn btn-primary" disabled={!name.trim() || !hasSelector || save.isPending}>
-              {editing ? 'Save changes' : 'Save group'}
-            </button>
-            {editing && (
-              <button type="button" className="btn btn-ghost" onClick={() => load(null)}>
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
-      )}
+      <Modal
+        open={assigning !== null}
+        onClose={() => setAssigning(null)}
+        size="lg"
+        title={assigning ? `Config for group "${assigning.name}"` : ''}
+        description={
+          assigning
+            ? `The config is pushed to the group's ${assigning.members.toLocaleString()} current agents in batches. Once that push completes, agents that join the group later and have no config receive it automatically. Agents that already have a different config keep it until a push changes it.`
+            : undefined
+        }
+      >
+        {assigning && <GroupConfigForm key={assigning.id} group={assigning} onDone={() => setAssigning(null)} />}
+      </Modal>
     </div>
   )
 }

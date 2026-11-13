@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
-import { ErrorNote } from '../../components/ui'
+import { ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { OriginBadge } from './parts'
 
@@ -16,19 +16,22 @@ export function ConfigList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Configs</h1>
-        {can('operator') && (
-          <div className="flex gap-2">
-            <Link to="/configs/new" className="btn">
-              Write YAML
-            </Link>
-            <Link to="/configs/build" className="btn btn-primary">
-              <Plus size={14} /> Build a config
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Configs"
+        description="Collector configs, each with a version history. Build one from sources, processors and destinations, or write the YAML yourself."
+        action={
+          can('operator') && (
+            <>
+              <Link to="/configs/new" className="btn">
+                Write YAML
+              </Link>
+              <Link to="/configs/build" className="btn btn-primary">
+                <Plus size={14} /> Build a config
+              </Link>
+            </>
+          )
+        }
+      />
       <div className="card overflow-auto">
         {error ? (
           <ErrorNote error={error} />

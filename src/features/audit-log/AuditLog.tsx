@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
-import { ErrorNote } from '../../components/ui'
+import { ErrorNote, PageHeader } from '../../components/ui'
 
 const PAGE = 100
 
@@ -23,13 +23,16 @@ export function AuditLog() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">Audit log</h1>
-        <form onSubmit={submit} className="flex gap-2">
-          <input className="input w-72" placeholder="Search action, user or target" value={input} onChange={(e) => setInput(e.target.value)} />
-          <button className="btn">Search</button>
-        </form>
-      </div>
+      <PageHeader
+        title="Audit log"
+        description="Every sign-in and every change made through the console, the command-line tool or by the system itself."
+        action={
+          <form onSubmit={submit} className="flex gap-2">
+            <input className="input w-72" placeholder="Search action, user or target" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Search the audit log" />
+            <button className="btn">Search</button>
+          </form>
+        }
+      />
       <div className="card overflow-auto">
         {log.error ? (
           <ErrorNote error={log.error} />

@@ -41,15 +41,7 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
   const error = save.error ?? clear.error
 
   return (
-    <section className="card max-w-4xl space-y-3 p-4">
-      <div>
-        <h2 className="font-medium">Config for group "{group.name}"</h2>
-        <p className="text-xs text-muted">
-          The config is pushed to the group's {group.members.toLocaleString()} current agents in batches. Once that push completes, agents
-          that join the group later and have no config receive it automatically. Agents that already have a different config keep it
-          until a push changes it.
-        </p>
-      </div>
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-xs text-muted">Config</span>
@@ -87,19 +79,10 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
         </label>
       </div>
       {error && <p className="text-xs text-danger">{error.message}</p>}
-      <div className="flex gap-2">
-        <button
-          className="btn btn-primary"
-          disabled={!valid || save.isPending}
-          onClick={() => {
-            void confirmDialog(`Push this config to the ${group.members.toLocaleString()} agents in "${group.name}" and make it the group's config?`).then((ok) => ok && save.mutate())
-          }}
-        >
-          Set and push
-        </button>
+      <div className="flex justify-end gap-2">
         {group.config && (
           <button
-            className="btn"
+            className="btn mr-auto"
             disabled={clear.isPending}
             onClick={() => {
               void confirmDialog('Stop this group handing out a config? Agents keep the config they already have.').then((ok) => ok && clear.mutate())
@@ -108,10 +91,23 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
             Remove group config
           </button>
         )}
-        <button className="btn btn-ghost" onClick={onDone}>
+        <button className="btn" onClick={onDone}>
           Cancel
         </button>
+        <button
+          className="btn btn-primary"
+          disabled={!valid || save.isPending}
+          onClick={() => {
+            void confirmDialog({
+              title: `Push this config to "${group.name}"?`,
+              body: `It goes to the group's ${group.members.toLocaleString()} agents in batches and becomes the group's config.`,
+              action: 'Set and push',
+            }).then((ok) => ok && save.mutate())
+          }}
+        >
+          Set and push
+        </button>
       </div>
-    </section>
+    </div>
   )
 }

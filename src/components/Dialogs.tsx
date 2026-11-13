@@ -6,8 +6,10 @@ import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNo
 import { currentDialog, showDialog, subscribeDialog, type DialogRequest } from '../lib/dialog'
 
 const overlay = 'fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px]'
-const panel =
-  'fixed left-1/2 top-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-panel p-5 shadow-xl focus:outline-none'
+const panelBase =
+  'fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-4rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-panel p-5 shadow-xl focus:outline-none'
+const widths = { md: 'w-[min(28rem,calc(100vw-2rem))]', lg: 'w-[min(44rem,calc(100vw-2rem))]', xl: 'w-[min(60rem,calc(100vw-2rem))]' }
+const panel = `${panelBase} ${widths.md}`
 
 function PromptForm({ request }: { request: Extract<DialogRequest, { kind: 'prompt' }> }) {
   const [value, setValue] = useState('')
@@ -107,19 +109,22 @@ export function Modal({
   onClose,
   title,
   description,
+  size = 'md',
   children,
 }: {
   open: boolean
   onClose: () => void
   title: string
   description?: string
+  /** md for a few fields, lg for longer forms, xl for forms with pickers or tables. */
+  size?: keyof typeof widths
   children: ReactNode
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className={overlay} />
-        <Dialog.Content className={panel} aria-describedby={undefined}>
+        <Dialog.Content className={`${panelBase} ${widths[size]}`} aria-describedby={undefined}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>

@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, type AgentQuery } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
-import { AgentStatus, ConfigStatus, ErrorNote } from '../../components/ui'
+import { AgentStatus, ConfigStatus, ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { Select } from '../../components/Select'
 
@@ -108,19 +108,21 @@ export function FleetDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Fleet</h1>
-        <div className="flex gap-2">
-          {can('admin') && (
-            <Link to="/agents/install" className="btn btn-primary">
-              <Plus size={14} /> Add collectors
-            </Link>
-          )}
-          <button className="btn" onClick={refresh} disabled={agents.isFetching}>
-            <RefreshCw size={13} className={agents.isFetching ? 'animate-spin' : ''} /> Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Fleet"
+        action={
+          <>
+            <button className="btn" onClick={refresh} disabled={agents.isFetching}>
+              <RefreshCw size={13} className={agents.isFetching ? 'animate-spin' : ''} /> Refresh
+            </button>
+            {can('admin') && (
+              <Link to="/agents/install" className="btn btn-primary">
+                <Plus size={14} /> Add collectors
+              </Link>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard label="Total agents" value={s?.total} active={view === 'all'} onClick={() => show('all')} />

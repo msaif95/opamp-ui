@@ -29,3 +29,7 @@ with its own theme.
   `Link` with a string `className` there, not `NavLink` with a function: Radix `asChild` stringifies the function.
 - Project access in the UI: `useAuth().canIn(projectId, role)` for a resource, `can(role)` for "anywhere",
   `components/ProjectSelect` for create forms. The Users page (`features/users`) lists people and their projects.
+- Page layout convention: every list page starts with `PageHeader` (title, one-line description, main action on the
+  right as a primary button) followed by the table. Creating or editing something small opens a `Modal` with the
+  form (Cancel + primary button, right-aligned); never put a create form inline under a table. Full-page forms are
+  only for the large ones (config editor/builder, new bulk push, add collectors). Secrets shown once use `SecretOnce`.

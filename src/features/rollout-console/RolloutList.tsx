@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
-import { ErrorNote } from '../../components/ui'
+import { ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
 
@@ -20,14 +20,17 @@ export function RolloutList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Bulk push</h1>
-        {can('operator') && (
-          <Link to="/rollouts/new" className="btn btn-primary">
-            <Plus size={14} /> New bulk push
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Bulk push"
+        description="Pushes of a config version to many collectors at once, in batches that pause or roll back when too many fail."
+        action={
+          can('operator') && (
+            <Link to="/rollouts/new" className="btn btn-primary">
+              <Plus size={14} /> New bulk push
+            </Link>
+          )
+        }
+      />
       <div className="card overflow-auto">
         {error ? (
           <ErrorNote error={error} />
