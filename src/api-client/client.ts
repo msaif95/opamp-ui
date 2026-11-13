@@ -88,6 +88,14 @@ export interface Group {
   selector: Selector
   members: number
   created_at: string
+  /** The config this group owns; matching agents with no config receive it automatically. */
+  config: {
+    version_id: string
+    template_id: string
+    template_name: string
+    version: number
+    set_at: string
+  } | null
 }
 
 export interface AuditEvent {
@@ -328,6 +336,12 @@ export const api = {
     request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description, selector }) }),
   updateGroup: (id: string, name: string, description: string, selector: Selector) =>
     request<Group>(`/groups/${id}`, { method: 'PUT', body: JSON.stringify({ name, description, selector }) }),
+  setGroupConfig: (id: string, configVersionId: string, batchSize: number, maxFailurePct: number) =>
+    request<{ rollout: Rollout | null }>(`/groups/${id}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ config_version_id: configVersionId, batch_size: batchSize, max_failure_pct: maxFailurePct }),
+    }),
+  clearGroupConfig: (id: string) => request<void>(`/groups/${id}/config`, { method: 'DELETE' }),
   deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: 'DELETE' }),
   audit: (q: string, before?: number) => {
     const p = new URLSearchParams({ limit: '100', q })

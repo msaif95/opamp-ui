@@ -1,0 +1,119 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api, type Group } from '../../api-client/client'
+
+/** Makes a group own a config: rolls it out to current members and hands it to agents that join later. */
+export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () => void }) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const [configId, setConfigId] = useState(group.config?.template_id ?? '')
+  const [versionId, setVersionId] = useState('')
+  const [batchSize, setBatchSize] = useState('100')
+  const [maxFailurePct, setMaxFailurePct] = useState('2')
+
+  const configs = useQuery({ queryKey: ['configs'], queryFn: api.configs })
+  const detail = useQuery({ queryKey: ['configs', configId], queryFn: () => api.config(configId), enabled: configId !== '' })
+  const versions = detail.data?.versions ?? []
+  const chosen = versionId || versions[0]?.id || ''
+  const batch = Number(batchSize)
+  const pct = Number(maxFailurePct)
+  const valid = chosen !== '' && Number.isInteger(batch) && batch >= 1 && batch <= 5000 && maxFailurePct !== '' && pct >= 0 && pct <= 100
+
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['groups'] }), qc.invalidateQueries({ queryKey: ['rollouts'] })])
+  const save = useMutation({
+    mutationFn: () => api.setGroupConfig(group.id, chosen, batch, pct),
+    onSuccess: async (res) => {
+      await refresh()
+      onDone()
+      if (res.rollout) navigate(`/rollouts/${res.rollout.id}`)
+    },
+  })
+  const clear = useMutation({
+    mutationFn: () => api.clearGroupConfig(group.id),
+    onSuccess: async () => {
+      await refresh()
+      onDone()
+    },
+  })
+  const error = save.error ?? clear.error
+
+  return (
+    <section className="card max-w-4xl space-y-3 p-4">
+      <div>
+        <h2 className="font-medium">Config for group "{group.name}"</h2>
+        <p className="text-xs text-muted">
+          The config is pushed to the group's {group.members.toLocaleString()} current agents in batches. Once that push completes, agents
+          that join the group later and have no config receive it automatically. Agents that already have a different config keep it
+          until a push changes it.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Config</span>
+          <select
+            className="input w-56"
+            value={configId}
+            onChange={(e) => {
+              setConfigId(e.target.value)
+              setVersionId('')
+            }}
+          >
+            <option value="">Select a config…</option>
+            {configs.data?.configs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Version</span>
+          <select className="input w-56" value={chosen} onChange={(e) => setVersionId(e.target.value)} disabled={versions.length === 0}>
+            {versions.map((v) => (
+              <option key={v.id} value={v.id}>
+                v{v.version}
+                {v.description ? ` – ${v.description}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Agents per batch</span>
+          <input className="input w-32" type="number" min={1} max={5000} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Pause above % failed</span>
+          <input className="input w-32" type="number" min={0} max={100} step={0.5} value={maxFailurePct} onChange={(e) => setMaxFailurePct(e.target.value)} />
+        </label>
+      </div>
+      {error && <p className="text-xs text-danger">{error.message}</p>}
+      <div className="flex gap-2">
+        <button
+          className="btn btn-primary"
+          disabled={!valid || save.isPending}
+          onClick={() => {
+            if (confirm(`Push this config to the ${group.members.toLocaleString()} agents in "${group.name}" and make it the group's config?`))
+              save.mutate()
+          }}
+        >
+          Set and push
+        </button>
+        {group.config && (
+          <button
+            className="btn"
+            disabled={clear.isPending}
+            onClick={() => {
+              if (confirm('Stop this group handing out a config? Agents keep the config they already have.')) clear.mutate()
+            }}
+          >
+            Remove group config
+          </button>
+        )}
+        <button className="btn btn-ghost" onClick={onDone}>
+          Cancel
+        </button>
+      </div>
+    </section>
+  )
+}

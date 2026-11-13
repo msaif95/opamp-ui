@@ -1,16 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { api, type Group, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { ErrorNote } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
+import { GroupConfigForm } from './GroupConfigForm'
 
 export function Groups() {
   const qc = useQueryClient()
   const { can } = useAuth()
   // The group being edited; null while creating a new one.
   const [editing, setEditing] = useState<Group | null>(null)
+  // The group whose config is being set.
+  const [assigning, setAssigning] = useState<Group | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [selector, setSelector] = useState<Selector>({})
@@ -72,6 +76,7 @@ export function Groups() {
                 <th>Name</th>
                 <th>Matches</th>
                 <th>Agents now</th>
+                <th>Config</th>
                 <th />
               </tr>
             </thead>
@@ -86,9 +91,21 @@ export function Groups() {
                     <SelectorChips selector={g.selector} />
                   </td>
                   <td>{g.members.toLocaleString()}</td>
+                  <td>
+                    {g.config ? (
+                      <Link to={`/configs/${g.config.template_id}`} className="text-accent hover:underline">
+                        {g.config.template_name} v{g.config.version}
+                      </Link>
+                    ) : (
+                      <span className="text-muted">None</span>
+                    )}
+                  </td>
                   <td className="space-x-2 text-right whitespace-nowrap">
                     {can('operator') && (
                       <>
+                        <button className="btn btn-sm" onClick={() => setAssigning(assigning?.id === g.id ? null : g)}>
+                          {g.config ? 'Change config' : 'Set config'}
+                        </button>
                         <button className="btn btn-sm" onClick={() => load(g)}>
                           Edit
                         </button>
@@ -108,7 +125,7 @@ export function Groups() {
               ))}
               {groups.data?.groups.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted">
+                  <td colSpan={5} className="py-8 text-center text-muted">
                     No groups yet.
                   </td>
                 </tr>
@@ -117,6 +134,8 @@ export function Groups() {
           </table>
         )}
       </div>
+
+      {can('operator') && assigning && <GroupConfigForm key={assigning.id} group={assigning} onDone={() => setAssigning(null)} />}
 
       {can('operator') && (
         <form onSubmit={submit} className="card max-w-4xl space-y-4 p-4">
