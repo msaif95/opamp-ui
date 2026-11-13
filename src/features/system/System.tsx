@@ -117,7 +117,16 @@ export function System() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">System</h1>
+      <div className="flex items-baseline gap-3">
+        <h1 className="text-lg font-semibold">System</h1>
+        <span className="font-mono text-xs text-muted">backend {data.status.version}</span>
+      </div>
+      {data.status.dev_mode && (
+        <p className="card border-warning p-3 text-warning">
+          Development mode is on: the backend's production safety checks (TLS for agents, strong secrets) are disabled. Do not run a
+          production fleet like this.
+        </p>
+      )}
 
       <Section title="Protections" hint="How this deployment is configured. Change these in the backend's environment or Helm values.">
         <ul>

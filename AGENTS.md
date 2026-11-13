@@ -4,7 +4,7 @@ Web console for `../opamp-backend`. Same stack as `../zobp-ui` (React 19 / Vite 
 with its own theme.
 
 - Node 22 via Homebrew (keg-only): `export PATH=/opt/homebrew/opt/node@22/bin:$PATH`
-- Verify with `npm run build` (`tsc -b` then Vite) and `npm run lint` (oxlint).
+- Verify with `npm run build` (`tsc -b` then Vite), `npm run lint` (oxlint) and `npm test` (vitest; pure helpers in `src/lib`).
 - Dev: `npm run dev` on :5174; `/api` is proxied to opamp-backend on :8080 (`OPAMP_BACKEND_URL` to override).
 - tsconfig has `erasableSyntaxOnly`: no TS parameter properties / enums.
 - Dependencies are pinned to exact versions; keep them pinned.
@@ -17,3 +17,5 @@ with its own theme.
   not `text-white`.
 - Container: `docker build -t opamp-ui .`; nginx (unprivileged, :8080) serves `dist` and proxies `/api` to
   `OPAMP_BACKEND_URL`.
+- The production CSP (`docker/nginx.conf`) forbids inline scripts: the theme bootstrap is `public/theme-init.js`,
+  not an inline `<script>`. Keep it that way.

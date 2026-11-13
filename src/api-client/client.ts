@@ -102,6 +102,9 @@ export interface AuditEvent {
 }
 
 export interface SystemStatus {
+  version: string
+  /** Production safety checks are switched off. */
+  dev_mode: boolean
   sso: boolean
   sso_issuer: string
   local_login: boolean

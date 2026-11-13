@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import { AgentDetail } from './features/agent-detail/AgentDetail'
 import { ConfigDetail } from './features/config-editor/ConfigDetail'
@@ -47,6 +48,7 @@ function Shell() {
 export default function App() {
   return (
     <ThemeProvider>
+      <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
@@ -54,6 +56,7 @@ export default function App() {
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   )
 }

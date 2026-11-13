@@ -5,20 +5,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Selector } from '../../api-client/client'
 import { SelectorPicker } from '../../components/SelectorPicker'
-
-/** Parses "1, 10, 50, 100" into increasing percentages ending at 100; null if invalid. */
-function parseSteps(text: string): number[] | null {
-  const steps = text
-    .split(/[\s,]+/)
-    .filter(Boolean)
-    .map(Number)
-  const valid =
-    steps.length > 0 &&
-    steps.length <= 20 &&
-    steps.every((s, i) => Number.isInteger(s) && s > (steps[i - 1] ?? 0) && s <= 100) &&
-    steps[steps.length - 1] === 100
-  return valid ? steps : null
-}
+import { parseSteps } from '../../lib/steps'
 
 export function NewRollout() {
   const navigate = useNavigate()

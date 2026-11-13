@@ -1,0 +1,31 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Known vulnerabilities in shipped dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Resolve version
+        id: v
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Build image
+        run: docker build -t ghcr.io/${{ github.repository_owner }}/opamp-ui:sha-${{ steps.v.outputs.sha }} .
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        run: docker push ghcr.io/${{ github.repository_owner }}/opamp-ui:sha-${{ steps.v.outputs.sha }}
