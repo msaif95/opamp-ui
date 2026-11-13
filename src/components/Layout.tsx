@@ -116,12 +116,19 @@ function NavGroup({ group, collapsed }: { group: NavGroupDef; collapsed: boolean
   const active = useActive()
   const onGroupPage = group.items.some((n) => active(n.to))
   const [open, setOpen] = useState(() => (localStorage.getItem(storageKey) ?? (group.defaultOpen ? '1' : '0')) === '1')
+  // Arriving on one of the group's pages shows the group, without changing what the user chose for other pages.
+  // It can still be closed while there; that lasts until the user leaves the group's pages.
+  const [closedHere, setClosedHere] = useState(false)
+  if (!onGroupPage && closedHere) setClosedHere(false)
+  const expanded = onGroupPage ? !closedHere : open
   const toggle = () => {
+    if (onGroupPage) {
+      setClosedHere(!closedHere)
+      return
+    }
     localStorage.setItem(storageKey, open ? '0' : '1')
     setOpen(!open)
   }
-  // Being on one of the group's pages shows the group without changing what the user chose for other pages.
-  const expanded = open || onGroupPage
 
   if (collapsed) {
     return (
@@ -168,8 +175,6 @@ function NavGroup({ group, collapsed }: { group: NavGroupDef; collapsed: boolean
         onClick={toggle}
         aria-expanded={expanded}
         aria-controls={`${group.id}-nav`}
-        // While on one of its pages the group stays open, so the button cannot close it.
-        disabled={onGroupPage}
       >
         <group.icon size={15} className="shrink-0" />
         <span className="flex-1 truncate text-left">{group.label}</span>
