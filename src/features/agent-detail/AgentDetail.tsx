@@ -10,6 +10,7 @@ import { timeAgo } from '../../lib/time'
 import { AgentActions } from './AgentActions'
 import { AgentActivity } from './AgentActivity'
 import { AgentLogs } from './AgentLogs'
+import { BridgeCollectors } from './BridgeCollectors'
 import { AgentMetrics } from './AgentMetrics'
 import { AgentTraces } from './AgentTraces'
 import { PushConfig } from './PushConfig'
@@ -32,6 +33,8 @@ export function AgentDetail() {
   if (isLoading) return <p className="text-muted">Loading…</p>
   if (error || !a) return <ErrorNote error={error} />
 
+  const isBridge = a.connector_type === 'k8s_bridge'
+
   return (
     <div className="space-y-4">
       <Breadcrumbs items={[{ label: 'Fleet', to: '/agents' }, { label: a.attributes['host.name'] ?? a.instance_uid }]} />
@@ -44,13 +47,15 @@ export function AgentDetail() {
           <Link to={`/agents/compare?a=${a.instance_uid}`} className="btn">
             <GitCompareArrows size={14} /> Compare with…
           </Link>
-          {canIn(a.project_id, 'operator') && <AgentActions agent={a} />}
+          {canIn(a.project_id, 'operator') && !isBridge && <AgentActions agent={a} />}
         </div>
       </div>
 
       <Tabs
         label="Collector details"
         tabs={[
+          // A bridge's page leads with the Kubernetes collectors it stands in for.
+          ...(isBridge ? [{ value: 'kubernetes', label: 'Kubernetes collectors', content: <BridgeCollectors agent={a} /> }] : []),
           {
             value: 'overview',
             label: 'Overview',
@@ -114,7 +119,7 @@ export function AgentDetail() {
               {(a.capabilities & CAP_ACCEPTS_REMOTE_CONFIG) === 0 ? (
                 <p className="border-t border-border px-4 py-3 text-muted">This agent does not accept remote config.</p>
               ) : (
-                canIn(a.project_id, 'operator') && <PushConfig key={a.desired_config?.version_id ?? 'none'} agent={a} />
+                canIn(a.project_id, 'operator') && !isBridge && <PushConfig key={a.desired_config?.version_id ?? 'none'} agent={a} />
               )}
             </section>
 

@@ -108,6 +108,24 @@ export interface TraceSpan {
   attributes?: Record<string, string>
 }
 
+/** One OpenTelemetryCollector resource reported by a Kubernetes OpAMP Bridge. */
+export interface BridgeCollector {
+  /** "namespace/name". */
+  key: string
+  namespace: string
+  name: string
+  /** Managed collectors can be given a config; others are reported only. */
+  managed: boolean
+  mode: string
+  replicas: number | null
+  healthy: boolean | null
+  pods: { name: string; healthy: boolean; status: string }[]
+  /** The pipeline config it runs, as YAML. */
+  config: string
+  assigned: { version_id: string; template_id: string; template_name: string; version: number; set_by: string; set_at: string } | null
+  in_sync: boolean
+}
+
 /** One line the collector process logged. */
 export interface LogLine {
   at: string
@@ -596,6 +614,9 @@ export const api = {
   agentAllMetrics: (uid: string) =>
     request<{ series: MetricSeries[]; samples: { at: string; values: Record<string, number> }[]; max_series: number }>(`/agents/${uid}/metrics/all`),
   agentTraces: (uid: string) => request<{ spans: TraceSpan[]; kept: number; kept_hours: number }>(`/agents/${uid}/traces`),
+  bridgeCollectors: (uid: string) => request<{ collectors: BridgeCollector[] }>(`/agents/${uid}/collectors`),
+  setBridgeCollectorConfig: (uid: string, collector: string, config_version_id: string | null) =>
+    request<void>(`/agents/${uid}/collectors/config`, { method: 'PUT', body: JSON.stringify({ collector, config_version_id }) }),
   agentLogs: (uid: string) => request<{ lines: LogLine[]; kept: number; kept_hours: number }>(`/agents/${uid}/logs`),
   agentMetrics: (uid: string) => request<{ points: MetricPoint[] }>(`/agents/${uid}/metrics`),
   assignConfig: (uid: string, configVersionId: string) =>

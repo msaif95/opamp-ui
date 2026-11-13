@@ -54,3 +54,4 @@ with its own theme.
   back/forward cache otherwise hold theirs until new pages hang.
 - Collector page tabs: Overview, Activity, Metrics (`AgentMetrics`: headline charts + one chart per reported metric),
   Logs, Traces. Each explains how to enable reporting when the collector lacks the capability bit.
+- A bridge's page (`connector_type === 'k8s_bridge'`) leads with a "Kubernetes collectors" tab (`BridgeCollectors`) and hides Push config and the stop/restart actions.

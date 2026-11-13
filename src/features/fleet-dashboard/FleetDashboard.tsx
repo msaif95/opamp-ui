@@ -348,7 +348,7 @@ export function FleetDashboard() {
                   <td>{a.agent_version ?? '–'}</td>
                   <td>{a.attributes['env'] ?? '–'}</td>
                   <td>{a.attributes['region'] ?? '–'}</td>
-                  <td>{a.connector_type}</td>
+                  <td>{a.connector_type === 'k8s_bridge' ? 'Kubernetes bridge' : a.connector_type}</td>
                   <td>{a.auth_mode === 'mtls' ? 'mTLS' : 'API key'}</td>
                   <td>
                     <ConfigStatus status={a.remote_config_status} />
