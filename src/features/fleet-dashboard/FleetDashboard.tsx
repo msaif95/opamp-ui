@@ -1,9 +1,10 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { ArrowDown, ArrowUp, RefreshCw, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, RefreshCw, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, type AgentQuery } from '../../api-client/client'
+import { useAuth } from '../../auth/AuthProvider'
 import { AgentStatus, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 
@@ -39,6 +40,7 @@ function StatCard({ label, value, tone, active, onClick }: { label: string; valu
 export function FleetDashboard() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { can } = useAuth()
   const [page, setPage] = useState(0)
   const [view, setView] = useState<View>('all')
   const [sort, setSort] = useState<AgentQuery['sort']>('name')
@@ -103,9 +105,16 @@ export function FleetDashboard() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Fleet</h1>
-        <button className="btn" onClick={refresh} disabled={agents.isFetching}>
-          <RefreshCw size={13} className={agents.isFetching ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex gap-2">
+          {can('admin') && (
+            <Link to="/agents/install" className="btn btn-primary">
+              <Plus size={14} /> Add collectors
+            </Link>
+          )}
+          <button className="btn" onClick={refresh} disabled={agents.isFetching}>
+            <RefreshCw size={13} className={agents.isFetching ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

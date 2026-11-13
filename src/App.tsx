@@ -10,6 +10,7 @@ import { ConfigList } from './features/config-editor/ConfigList'
 import { NewConfig } from './features/config-editor/NewConfig'
 import { Credentials } from './features/credentials/Credentials'
 import { AuditLog } from './features/audit-log/AuditLog'
+import { InstallCollector } from './features/install/InstallCollector'
 import { System } from './features/system/System'
 import { Groups } from './features/targeting/Groups'
 import { NewRollout } from './features/rollout-console/NewRollout'
@@ -28,6 +29,7 @@ function Shell() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/agents" element={<FleetDashboard />} />
+        {can('admin') && <Route path="/agents/install" element={<InstallCollector />} />}
         <Route path="/agents/:uid" element={<AgentDetail />} />
         <Route path="/configs" element={<ConfigList />} />
         {can('operator') && <Route path="/configs/new" element={<NewConfig />} />}

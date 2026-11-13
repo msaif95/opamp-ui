@@ -358,6 +358,8 @@ export const api = {
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
   issueApiKey: (name: string, expiresAt: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),
+  installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number }) =>
+    request<{ script: string; api_key_id: string }>('/agents/install-command', { method: 'POST', body: JSON.stringify(req) }),
   revokedCerts: () => request<{ revoked_certs: RevokedCert[] }>('/credentials/revoked-certs'),
   revokeCert: (name: string, certificatePem: string) =>
     request<RevokedCert>('/credentials/revoked-certs', { method: 'POST', body: JSON.stringify({ name, certificate_pem: certificatePem }) }),
