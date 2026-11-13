@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { api, type Protection, type ProtectionKey, type SystemAlert, type SystemStatus } from '../../api-client/client'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { confirmDialog } from '../../lib/dialog'
 
 const REFRESH_MS = 10_000
 
@@ -119,7 +120,10 @@ function ProtectionRow({ p, text }: { p: Protection; text: Copy }) {
   })
   const inEffect = p.available && p.enabled
   const toggle = () => {
-    if (inEffect && text.confirmOff && !confirm(text.confirmOff)) return
+    if (inEffect && text.confirmOff) {
+      void confirmDialog(text.confirmOff).then((ok) => ok && set.mutate(false))
+      return
+    }
     set.mutate(!p.enabled)
   }
   return (

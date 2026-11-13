@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { confirmDialog } from '../../lib/dialog'
 
 /** Blocks individual agent client certificates that would otherwise be trusted because they chain to the CA. */
 export function RevokedCerts() {
@@ -21,8 +22,7 @@ export function RevokedCerts() {
   })
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (confirm('Revoke this certificate? An agent using it is disconnected within about 30 seconds and cannot reconnect. This cannot be undone here.'))
-      revoke.mutate()
+    void confirmDialog('Revoke this certificate? An agent using it is disconnected within about 30 seconds and cannot reconnect. This cannot be undone here.').then((ok) => ok && revoke.mutate())
   }
 
   return (

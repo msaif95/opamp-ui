@@ -8,6 +8,7 @@ import { SelectorPicker } from '../../components/SelectorPicker'
 import { ErrorNote } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
 import { GroupConfigForm } from './GroupConfigForm'
+import { confirmDialog } from '../../lib/dialog'
 
 export function Groups() {
   const qc = useQueryClient()
@@ -124,7 +125,7 @@ export function Groups() {
                           className="btn btn-sm btn-danger"
                           disabled={remove.isPending}
                           onClick={() => {
-                            if (confirm(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`)) remove.mutate(g.id)
+                            void confirmDialog(`Delete group "${g.name}"? Past bulk pushes keep their own record of the target.`).then((ok) => ok && remove.mutate(g.id))
                           }}
                         >
                           Delete

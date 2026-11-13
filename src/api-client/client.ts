@@ -23,6 +23,17 @@ export interface Project {
   agents: number
 }
 
+/** Someone who has signed in, or was added to a project ahead of their first sign-in. */
+export interface Person {
+  subject: string
+  name: string
+  /** Empty for someone who has never signed in. */
+  provider: 'okta' | 'local' | ''
+  global_role: Role | ''
+  last_login_at: string | null
+  projects: { id: string; name: string; role: Role }[]
+}
+
 export interface ProjectMember {
   subject: string
   role: Role
@@ -420,6 +431,7 @@ export const api = {
   me: () => request<User>('/auth/me'),
   summary: (project?: string) => request<Summary>(`/summary${project ? `?project_id=${project}` : ''}`),
   projects: () => request<{ projects: Project[] }>('/projects'),
+  users: () => request<{ users: Person[] }>('/users'),
   createProject: (name: string, description: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),

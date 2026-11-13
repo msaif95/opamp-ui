@@ -4,6 +4,14 @@ import { api, type Project, type Role } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { confirmDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
+
+// oxlint-disable-next-line react/only-export-components
+export const PROJECT_ROLES = [
+  { value: 'viewer', label: 'Viewer', hint: 'Can look, not change' },
+  { value: 'operator', label: 'Operator', hint: 'Can change configs and push' },
+]
 
 function Members({ project }: { project: Project }) {
   const qc = useQueryClient()
@@ -51,15 +59,13 @@ function Members({ project }: { project: Project }) {
               <tr key={m.subject}>
                 <td>{m.subject}</td>
                 <td>
-                  <select
-                    className="input w-36"
+                  <Select
+                    className="w-36"
                     value={m.role}
                     aria-label={`Role of ${m.subject}`}
-                    onChange={(e) => set.mutate({ subject: m.subject, role: e.target.value as Role })}
-                  >
-                    <option value="viewer">Viewer</option>
-                    <option value="operator">Operator</option>
-                  </select>
+                    onChange={(v) => set.mutate({ subject: m.subject, role: v as Role })}
+                    options={PROJECT_ROLES}
+                  />
                 </td>
                 <td className="text-muted">
                   by {m.added_by}, {timeAgo(m.added_at)}
@@ -68,7 +74,7 @@ function Members({ project }: { project: Project }) {
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => {
-                      if (confirm(`Remove ${m.subject} from "${project.name}"? They lose access to it immediately.`)) remove.mutate(m.subject)
+                      void confirmDialog(`Remove ${m.subject} from "${project.name}"? They lose access to it immediately.`).then((ok) => ok && remove.mutate(m.subject))
                     }}
                   >
                     Remove
@@ -93,10 +99,7 @@ function Members({ project }: { project: Project }) {
         </label>
         <label className="space-y-1">
           <span className="block text-xs text-muted">Role</span>
-          <select className="input w-36" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            <option value="viewer">Viewer</option>
-            <option value="operator">Operator</option>
-          </select>
+          <Select className="w-36" value={role} onChange={(v) => setRole(v as Role)} options={PROJECT_ROLES} />
         </label>
         <button className="btn btn-primary" disabled={!subject.trim() || set.isPending}>
           Add to project
@@ -183,8 +186,7 @@ export function Projects() {
                       className="btn btn-sm btn-danger"
                       disabled={remove.isPending}
                       onClick={() => {
-                        if (confirm(`Delete project "${p.name}"? This only works once it owns no collectors, keys, configs, groups or pushes.`))
-                          remove.mutate(p.id)
+                        void confirmDialog(`Delete project "${p.name}"? This only works once it owns no collectors, keys, configs, groups or pushes.`).then((ok) => ok && remove.mutate(p.id))
                       }}
                     >
                       Delete

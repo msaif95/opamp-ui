@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Role } from '../api-client/client'
 import { useAuth } from '../auth/AuthProvider'
+import { Select } from './Select'
 
 /** Sentinel for "not chosen yet"; distinct from null, which means "no project". */
 export const UNSET = undefined
@@ -30,13 +31,12 @@ export function ProjectSelect({
   return (
     <label className="space-y-1">
       <span className="block text-xs text-muted">{label}</span>
-      <select className="input w-48" value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}>
-        {options.map((o) => (
-          <option key={o.id ?? ''} value={o.id ?? ''}>
-            {o.name}
-          </option>
-        ))}
-      </select>
+      <Select
+        className="w-48"
+        value={value ?? ''}
+        onChange={(v) => onChange(v === '' ? null : v)}
+        options={options.map((o) => ({ value: o.id ?? '', label: o.name }))}
+      />
     </label>
   )
 }

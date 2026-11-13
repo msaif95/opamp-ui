@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthProvider'
 import { ProjectSelect } from '../../components/ProjectSelect'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { parseSteps } from '../../lib/steps'
+import { confirmDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
 
 export function NewRollout() {
   const navigate = useNavigate()
@@ -82,7 +84,7 @@ export function NewRollout() {
   const start = () => {
     const name = configs.data?.configs.find((c) => c.id === configId)?.name
     const version = versions.find((v) => v.id === chosenVersion)?.version
-    if (confirm(`Push ${name} v${version} to ${matched.toLocaleString()} agents ${pace}?`)) create.mutate()
+    void confirmDialog(`Push ${name} v${version} to ${matched.toLocaleString()} agents ${pace}?`).then((ok) => ok && create.mutate())
   }
 
   return (
@@ -108,30 +110,26 @@ export function NewRollout() {
               }}
             />
           )}
-          <select
-            className="input w-64"
-            value={configId}
-            onChange={(e) => {
-              setConfigId(e.target.value)
-              setVersionId('')
-            }}
-            aria-label="Config"
-          >
-            <option value="">Select a config…</option>
-            {sameProject(configs.data?.configs).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select className="input w-72" value={chosenVersion} onChange={(e) => setVersionId(e.target.value)} disabled={versions.length === 0} aria-label="Version">
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                v{v.version}
-                {v.description ? ` – ${v.description}` : ''}
-              </option>
-            ))}
-          </select>
+          <Select
+        className="w-64"
+        value={configId}
+        placeholder="Select a config…"
+        aria-label="Config"
+        onChange={(v) => {
+          setConfigId(v)
+          setVersionId('')
+        }}
+        options={sameProject(configs.data?.configs).map((c) => ({ value: c.id, label: c.name }))}
+      />
+          <Select
+        className="w-72"
+        value={chosenVersion}
+        placeholder="No versions"
+        aria-label="Version"
+        disabled={versions.length === 0}
+        onChange={setVersionId}
+        options={versions.map((v) => ({ value: v.id, label: `v${v.version}`, hint: v.description || undefined }))}
+      />
         </div>
       </section>
 
@@ -143,14 +141,16 @@ export function NewRollout() {
               Use a saved group, or pick values. Values of the same attribute are combined with OR; different attributes with AND.
             </p>
           </div>
-          <select className="input w-56" value={groupId} onChange={(e) => pickGroup(e.target.value)} aria-label="Saved group">
-            <option value="">No saved group</option>
-            {groups.data?.groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} ({g.members.toLocaleString()})
-              </option>
-            ))}
-          </select>
+          <Select
+            className="w-56"
+            value={groupId}
+            aria-label="Saved group"
+            onChange={pickGroup}
+            options={[
+              { value: '', label: 'No saved group' },
+              ...(groups.data?.groups ?? []).map((g) => ({ value: g.id, label: g.name, hint: `${g.members.toLocaleString()} agents` })),
+            ]}
+          />
         </div>
         <SelectorPicker
           project={project}

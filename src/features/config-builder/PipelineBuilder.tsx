@@ -9,6 +9,8 @@ import { ErrorNote } from '../../components/ui'
 import { IssueList } from '../config-editor/parts'
 import { ComponentForm } from './ComponentForm'
 import { LibraryItemEditor } from './LibraryItemEditor'
+import { promptDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
 
 const EMPTY: BuilderSpec = { sources: [], processors: [], destinations: [] }
 
@@ -201,8 +203,9 @@ function BuilderBody({
                           className="btn btn-sm"
                           disabled={saveToLibrary.isPending}
                           onClick={() => {
-                            const name = prompt(`Save this ${col.kind} to the library as:`)?.trim()
-                            if (name) saveToLibrary.mutate({ kind: col.kind, key: col.key, index: i, name, c })
+                            void promptDialog({ title: `Save this ${col.kind} to the library`, label: 'Name', placeholder: 'e.g. central-gateway' }).then(
+                              (name) => name && saveToLibrary.mutate({ kind: col.kind, key: col.key, index: i, name, c }),
+                            )
                           }}
                         >
                           Save to library for reuse
@@ -215,29 +218,19 @@ function BuilderBody({
               })}
             </ul>
             <div className="p-3">
-              <select className="input w-full" value="" onChange={(e) => e.target.value && add(col.key, e.target.value)} aria-label={col.add}>
-                <option value="">+ {col.add}…</option>
-                {items.some((it) => it.kind === col.kind) && (
-                  <optgroup label="From the library">
-                    {items
-                      .filter((it) => it.kind === col.kind)
-                      .map((it) => (
-                        <option key={it.id} value={`item:${it.id}`}>
-                          {it.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-                <optgroup label="New">
-                  {types
+              <Select
+                className="w-full"
+                value=""
+                placeholder={`+ ${col.add}…`}
+                aria-label={col.add}
+                onChange={(v) => v && add(col.key, v)}
+                options={[
+                  ...items.filter((it) => it.kind === col.kind).map((it) => ({ value: `item:${it.id}`, label: it.name, group: 'From the library' })),
+                  ...types
                     .filter((t) => t.kind === col.kind)
-                    .map((t) => (
-                      <option key={t.type} value={`type:${t.type}`}>
-                        {t.label} ({t.signals.join(', ')})
-                      </option>
-                    ))}
-                </optgroup>
-              </select>
+                    .map((t) => ({ value: `type:${t.type}`, label: t.label, hint: t.signals.join(', '), group: 'New' })),
+                ]}
+              />
             </div>
           </section>
         ))}

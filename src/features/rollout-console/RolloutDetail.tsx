@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { ProgressBar, RolloutStatusBadge, SelectorChips } from './parts'
+import { confirmDialog } from '../../lib/dialog'
 
 export function RolloutDetail() {
   const { id = '' } = useParams()
@@ -66,7 +67,7 @@ export function RolloutDetail() {
                 className="btn btn-primary"
                 disabled={act.isPending}
                 onClick={() => {
-                  if (confirm('Continue with the next batch? Failures so far will no longer count toward the limit.')) act.mutate('resume')
+                  void confirmDialog('Continue with the next batch? Failures so far will no longer count toward the limit.').then((ok) => ok && act.mutate('resume'))
                 }}
               >
                 {r.error?.startsWith('waiting for approval') ? 'Approve next batch' : 'Resume'}
@@ -77,8 +78,7 @@ export function RolloutDetail() {
                 className="btn"
                 disabled={act.isPending}
                 onClick={() => {
-                  if (confirm('Abort this push? Agents not yet reached keep their current config. Agents already updated are not rolled back.'))
-                    act.mutate('abort')
+                  void confirmDialog('Abort this push? Agents not yet reached keep their current config. Agents already updated are not rolled back.').then((ok) => ok && act.mutate('abort'))
                 }}
               >
                 Abort
@@ -88,12 +88,7 @@ export function RolloutDetail() {
               className="btn btn-danger"
               disabled={act.isPending}
               onClick={() => {
-                if (
-                  confirm(
-                    'Roll back? Every agent this push changed is sent the config it had before. Agents that had no config before cannot be restored and keep the new one.',
-                  )
-                )
-                  act.mutate('rollback')
+                void confirmDialog('Roll back? Every agent this push changed is sent the config it had before. Agents that had no config before cannot be restored and keep the new one.').then((ok) => ok && act.mutate('rollback'))
               }}
             >
               Roll back

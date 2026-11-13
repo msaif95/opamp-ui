@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api-client/client'
 import { ProjectSelect } from '../../components/ProjectSelect'
+import { Select } from '../../components/Select'
 
 const platforms = [
   { value: 'linux_amd64', label: 'Linux (x86-64)' },
@@ -62,13 +63,7 @@ export function InstallCollector() {
         <div className="flex flex-wrap gap-3">
           <label className="space-y-1">
             <span className="block text-xs text-muted">Platform</span>
-            <select className="input w-52" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              {platforms.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <Select className="w-52" value={platform} onChange={setPlatform} options={platforms} />
           </label>
           <label className="space-y-1">
             <span className="block text-xs text-muted">Collector version</span>

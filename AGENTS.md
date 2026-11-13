@@ -21,3 +21,9 @@ with its own theme.
   not an inline `<script>`. Keep it that way.
 - Config builder: `src/features/config-builder`. Forms are generated from the backend catalog; add component
   types in the backend, not here.
+- Dropdowns and dialogs: never use the browser's `<select>`, `confirm()` or `prompt()`. Use `components/Select`
+  (Radix select; `''` is a valid option value), `confirmDialog` / `promptDialog` from `lib/dialog` (rendered by
+  `<DialogHost />` in `App.tsx`), and `components/Dialogs` `Modal` for small forms. Tooltips use Radix tooltip.
+- Sidebar (`components/Layout.tsx`) collapses to icons; the choice is kept in `localStorage`. Add pages to its `NAV` list.
+- Project access in the UI: `useAuth().canIn(projectId, role)` for a resource, `can(role)` for "anywhere",
+  `components/ProjectSelect` for create forms. The Users page (`features/users`) lists people and their projects.

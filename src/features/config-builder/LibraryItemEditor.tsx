@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api, ApiError, type BuilderType, type LibraryItem } from '../../api-client/client'
 import { IssueList } from '../config-editor/parts'
 import { ComponentForm } from './ComponentForm'
+import { confirmDialog } from '../../lib/dialog'
 
 /** Edits a saved library item in place, from a pipeline that uses it. */
 export function LibraryItemEditor({ item, type, onDetach }: { item: LibraryItem; type: BuilderType; onDetach: () => void }) {
@@ -36,8 +37,7 @@ export function LibraryItemEditor({ item, type, onDetach }: { item: LibraryItem;
           className="btn btn-sm btn-danger"
           disabled={remove.isPending}
           onClick={() => {
-            if (confirm(`Delete "${item.name}" from the library? Saved configs keep working; pipelines that refer to it must pick something else when next edited.`))
-              remove.mutate()
+            void confirmDialog(`Delete "${item.name}" from the library? Saved configs keep working; pipelines that refer to it must pick something else when next edited.`).then((ok) => ok && remove.mutate())
           }}
         >
           Delete from library

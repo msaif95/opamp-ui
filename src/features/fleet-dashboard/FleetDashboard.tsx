@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { AgentStatus, ConfigStatus, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { Select } from '../../components/Select'
 
 const PAGE_SIZE = 50
 /** Safety-net refresh for "last seen"; real changes arrive through the event stream. */
@@ -158,41 +159,32 @@ export function FleetDashboard() {
           </span>
         )}
         {hasProjects && (
-          <select
-            className="input w-44"
+          <Select
+            className="w-44"
             value={project}
-            onChange={(e) => {
-              setProject(e.target.value)
+            aria-label="Project"
+            onChange={(v) => {
+              setProject(v)
               setPage(0)
             }}
-            aria-label="Project"
-          >
-            <option value="">All projects</option>
-            {user?.projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-            {(user?.admin || user?.role) && <option value="none">No project</option>}
-          </select>
+            options={[
+              { value: '', label: 'All projects' },
+              ...(user?.projects ?? []).map((p) => ({ value: p.id, label: p.name })),
+              ...(user?.admin || user?.role ? [{ value: 'none', label: 'No project' }] : []),
+            ]}
+          />
         )}
         {(groups.data?.groups.length ?? 0) > 0 && (
-          <select
-            className="input w-48"
+          <Select
+            className="w-48"
             value={groupId}
-            onChange={(e) => {
-              setGroupId(e.target.value)
+            aria-label="Group"
+            onChange={(v) => {
+              setGroupId(v)
               setPage(0)
             }}
-            aria-label="Group"
-          >
-            <option value="">All groups</option>
-            {groups.data?.groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+            options={[{ value: '', label: 'All groups' }, ...(groups.data?.groups ?? []).map((g) => ({ value: g.id, label: g.name }))]}
+          />
         )}
         <form onSubmit={addFilter}>
           <input

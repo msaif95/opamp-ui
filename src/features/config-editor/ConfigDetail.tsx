@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { DiffView, IssueList, OriginBadge, YamlEditor } from './parts'
+import { confirmDialog } from '../../lib/dialog'
 
 export function ConfigDetail() {
   const { id = '' } = useParams()
@@ -92,7 +93,7 @@ export function ConfigDetail() {
             disabled={config.assigned_agents > 0 || remove.isPending}
             title={config.assigned_agents > 0 ? 'Assigned to agents; reassign them first' : undefined}
             onClick={() => {
-              if (confirm(`Delete "${config.name}" and all its versions?`)) remove.mutate()
+              void confirmDialog(`Delete "${config.name}" and all its versions?`).then((ok) => ok && remove.mutate())
             }}
           >
             Delete

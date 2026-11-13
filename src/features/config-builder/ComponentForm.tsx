@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { BuilderField, BuilderType, BuilderValue } from '../../api-client/client'
+import { Select } from '../../components/Select'
 
 /** One text line per entry: "value" for lists, "key=value" for maps. */
 function LinesField({ field, value, onChange }: { field: BuilderField; value: BuilderValue | undefined; onChange: (v: BuilderValue) => void }) {
@@ -42,13 +43,7 @@ function FieldInput({ field, value, onChange }: { field: BuilderField; value: Bu
       return <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
     case 'enum':
       return (
-        <select className="input w-56" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
-          {field.options?.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <Select className="w-56" value={String(value ?? '')} onChange={onChange} options={(field.options ?? []).map((o) => ({ value: o, label: o }))} />
       )
     case 'multi': {
       const chosen = (value as string[]) ?? []

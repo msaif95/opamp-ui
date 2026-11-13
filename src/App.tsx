@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
+import { DialogHost } from './components/Dialogs'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import { AgentDetail } from './features/agent-detail/AgentDetail'
@@ -15,6 +16,7 @@ import { InstallCollector } from './features/install/InstallCollector'
 import { System } from './features/system/System'
 import { Groups } from './features/targeting/Groups'
 import { Projects } from './features/projects/Projects'
+import { Users } from './features/users/Users'
 import { NewRollout } from './features/rollout-console/NewRollout'
 import { RolloutDetail } from './features/rollout-console/RolloutDetail'
 import { RolloutList } from './features/rollout-console/RolloutList'
@@ -40,6 +42,7 @@ function Shell() {
         <Route path="/configs/:id" element={<ConfigDetail />} />
         <Route path="/groups" element={<Groups />} />
         {can('admin') && <Route path="/projects" element={<Projects />} />}
+        {can('admin') && <Route path="/users" element={<Users />} />}
         {can('admin') && <Route path="/audit" element={<AuditLog />} />}
         {can('admin') && <Route path="/system" element={<System />} />}
         <Route path="/rollouts" element={<RolloutList />} />
@@ -60,6 +63,7 @@ export default function App() {
         <BrowserRouter>
           <AuthProvider>
             <Shell />
+            <DialogHost />
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

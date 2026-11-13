@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, type Group } from '../../api-client/client'
+import { confirmDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
 
 /** Makes a group own a config: rolls it out to current members and hands it to agents that join later. */
 export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () => void }) {
@@ -51,32 +53,29 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-xs text-muted">Config</span>
-          <select
-            className="input w-56"
-            value={configId}
-            onChange={(e) => {
-              setConfigId(e.target.value)
-              setVersionId('')
-            }}
-          >
-            <option value="">Select a config…</option>
-            {configs.data?.configs.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select
+        className="w-56"
+        value={configId}
+        placeholder="Select a config…"
+        aria-label="Config"
+        onChange={(v) => {
+          setConfigId(v)
+          setVersionId('')
+        }}
+        options={(configs.data?.configs ?? []).filter((c) => c.project_id === group.project_id).map((c) => ({ value: c.id, label: c.name }))}
+      />
         </label>
         <label className="space-y-1">
           <span className="block text-xs text-muted">Version</span>
-          <select className="input w-56" value={chosen} onChange={(e) => setVersionId(e.target.value)} disabled={versions.length === 0}>
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                v{v.version}
-                {v.description ? ` – ${v.description}` : ''}
-              </option>
-            ))}
-          </select>
+          <Select
+        className="w-56"
+        value={chosen}
+        placeholder="No versions"
+        aria-label="Version"
+        disabled={versions.length === 0}
+        onChange={setVersionId}
+        options={versions.map((v) => ({ value: v.id, label: `v${v.version}`, hint: v.description || undefined }))}
+      />
         </label>
         <label className="space-y-1">
           <span className="block text-xs text-muted">Agents per batch</span>
@@ -93,8 +92,7 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
           className="btn btn-primary"
           disabled={!valid || save.isPending}
           onClick={() => {
-            if (confirm(`Push this config to the ${group.members.toLocaleString()} agents in "${group.name}" and make it the group's config?`))
-              save.mutate()
+            void confirmDialog(`Push this config to the ${group.members.toLocaleString()} agents in "${group.name}" and make it the group's config?`).then((ok) => ok && save.mutate())
           }}
         >
           Set and push
@@ -104,7 +102,7 @@ export function GroupConfigForm({ group, onDone }: { group: Group; onDone: () =>
             className="btn"
             disabled={clear.isPending}
             onClick={() => {
-              if (confirm('Stop this group handing out a config? Agents keep the config they already have.')) clear.mutate()
+              void confirmDialog('Stop this group handing out a config? Agents keep the config they already have.').then((ok) => ok && clear.mutate())
             }}
           >
             Remove group config

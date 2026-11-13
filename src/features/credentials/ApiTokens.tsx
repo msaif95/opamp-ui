@@ -4,6 +4,8 @@ import { api, type Role } from '../../api-client/client'
 import { ProjectName, ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { Badge, ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { confirmDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
 
 /** Long-lived tokens for the opampctl command-line tool and automation. */
 export function ApiTokens() {
@@ -45,11 +47,11 @@ export function ApiTokens() {
         </label>
         <label className="space-y-1">
           <span className="block text-xs text-muted">Role</span>
-          <select className="input w-40" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            <option value="viewer">Viewer</option>
-            <option value="operator">Operator</option>
-            <option value="admin">Admin</option>
-          </select>
+          <Select className="w-40" value={role} onChange={(v) => setRole(v as Role)} options={[
+              { value: 'viewer', label: 'Viewer', hint: 'Can look, not change' },
+              { value: 'operator', label: 'Operator', hint: 'Can change configs and push' },
+              { value: 'admin', label: 'Admin', hint: 'Everything, in every project' },
+            ]} />
         </label>
         {role !== 'admin' && <ProjectSelect value={project} onChange={setProject} role="admin" label="Acts in project" />}
         <label className="space-y-1">
@@ -117,7 +119,7 @@ export function ApiTokens() {
                           className="btn btn-sm btn-danger"
                           disabled={revoke.isPending}
                           onClick={() => {
-                            if (confirm(`Revoke the token "${t.name}"? Anything using it stops working immediately.`)) revoke.mutate(t.id)
+                            void confirmDialog(`Revoke the token "${t.name}"? Anything using it stops working immediately.`).then((ok) => ok && revoke.mutate(t.id))
                           }}
                         >
                           Revoke

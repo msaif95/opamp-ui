@@ -7,6 +7,8 @@ import { ApiTokens } from './ApiTokens'
 import { RevokedCerts } from './RevokedCerts'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
+import { confirmDialog } from '../../lib/dialog'
+import { Select } from '../../components/Select'
 
 function keyState(k: ApiKey) {
   if (k.revoked_at) return <Badge tone="danger">Revoked</Badge>
@@ -106,28 +108,21 @@ export function Credentials() {
                   <td>{k.name}</td>
                   {hasProjects && (
                     <td>
-                      <select
-                        className="input w-40"
+                      <Select
+                        className="w-40"
                         value={k.project_id ?? ''}
                         disabled={k.revoked_at !== null || move.isPending}
                         aria-label={`Project of ${k.name}`}
-                        onChange={(e) => {
-                          const target = e.target.value || null
-                          if (
-                            confirm(
-                              `Move the key "${k.name}" and every collector using it to ${target ? 'that project' : 'no project'}? People in the old project lose sight of those collectors.`,
-                            )
-                          )
-                            move.mutate({ id: k.id, project: target })
+                        onChange={(v) => {
+                          const target = v || null
+                          void confirmDialog({
+                            title: `Move the key "${k.name}" to ${target ? 'that project' : 'no project'}?`,
+                            body: 'Every collector using this key moves with it. People in the old project lose sight of those collectors.',
+                            action: 'Move',
+                          }).then((ok) => ok && move.mutate({ id: k.id, project: target }))
                         }}
-                      >
-                        <option value="">No project</option>
-                        {user?.projects.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                        options={[{ value: '', label: 'No project' }, ...(user?.projects ?? []).map((p) => ({ value: p.id, label: p.name }))]}
+                      />
                     </td>
                   )}
                   <td>{keyState(k)}</td>
@@ -141,7 +136,7 @@ export function Credentials() {
                         className="btn btn-sm btn-danger"
                         disabled={revoke.isPending}
                         onClick={() => {
-                          if (confirm(`Revoke "${k.name}"? Agents using it are disconnected within about 30 seconds and cannot reconnect.`)) revoke.mutate(k.id)
+                          void confirmDialog(`Revoke "${k.name}"? Agents using it are disconnected within about 30 seconds and cannot reconnect.`).then((ok) => ok && revoke.mutate(k.id))
                         }}
                       >
                         Revoke
