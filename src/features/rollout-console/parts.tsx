@@ -15,8 +15,7 @@ export function RolloutStatusBadge({ rollout }: { rollout: Rollout }) {
   const withFailures = rollout.status === 'completed' && (rollout.counts.failed ?? 0) > 0
   return (
     <Badge tone={withFailures ? 'warning' : statusTone[rollout.status]}>
-      <span className="capitalize">{rollout.status.replace('_', ' ')}</span>
-      {withFailures && ' with failures'}
+      <span className="first-letter:uppercase">{rollout.status.replace('_', ' ') + (withFailures ? ' with failures' : '')}</span>
     </Badge>
   )
 }

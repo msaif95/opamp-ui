@@ -82,7 +82,7 @@ export function ConfigDetail() {
           </div>
           <p className="text-xs text-muted">
             {config.description && `${config.description} · `}
-            Assigned to {config.assigned_agents.toLocaleString()} agents
+            Assigned to {config.assigned_agents.toLocaleString()} {config.assigned_agents === 1 ? 'agent' : 'agents'}
           </p>
         </div>
         {can('operator') && (
@@ -113,9 +113,14 @@ export function ConfigDetail() {
                   className={clsx('block w-full border-b border-border px-4 py-2 text-left last:border-b-0 hover:bg-hover', v.version === versionNo && 'bg-selected')}
                   onClick={() => select(v.version)}
                 >
-                  <div className="font-medium">
-                    v{v.version}
-                    {v.version === config.latest_version && <span className="ml-2 text-xs font-normal text-muted">latest</span>}
+                  <div className="flex items-center justify-between gap-2 font-medium">
+                    <span>
+                      v{v.version}
+                      {v.version === config.latest_version && <span className="ml-2 text-xs font-normal text-muted">latest</span>}
+                    </span>
+                    {(v.assigned_agents ?? 0) > 0 && (
+                      <span className="chip h-5 text-[11px] font-normal">{v.assigned_agents!.toLocaleString()} {v.assigned_agents === 1 ? 'agent' : 'agents'}</span>
+                    )}
                   </div>
                   <div className="text-xs text-muted">
                     {v.author} · {timeAgo(v.created_at)}

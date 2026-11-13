@@ -45,6 +45,8 @@ export interface ConfigTemplate {
   origin: 'ui' | 'git'
   latest_version: number
   assigned_agents: number
+  /** Agents assigned per version number. */
+  assigned_by_version: Record<string, number>
   created_at: string
   updated_at: string
 }
@@ -58,6 +60,8 @@ export interface ConfigVersion {
   description: string
   origin: 'ui' | 'git'
   git_commit_sha: string | null
+  /** Only present in the version list of a config, and only when non-zero. */
+  assigned_agents?: number
   created_at: string
 }
 
@@ -145,6 +149,10 @@ export interface AgentQuery {
   limit: number
   offset: number
   connected?: boolean
+  healthy?: boolean
+  configStatus?: Agent['remote_config_status']
+  sort: 'name' | 'last_seen'
+  order: 'asc' | 'desc'
   attrs: Record<string, string>
 }
 
@@ -191,8 +199,10 @@ export const api = {
   me: () => request<User>('/auth/me'),
   summary: () => request<Summary>('/summary'),
   agents: (q: AgentQuery) => {
-    const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset) })
+    const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset), sort: q.sort, order: q.order })
     if (q.connected !== undefined) p.set('connected', String(q.connected))
+    if (q.healthy !== undefined) p.set('healthy', String(q.healthy))
+    if (q.configStatus) p.set('config_status', q.configStatus)
     for (const [k, v] of Object.entries(q.attrs)) p.append('attr', `${k}=${v}`)
     return request<{ agents: Agent[]; total: number }>(`/agents?${p}`)
   },

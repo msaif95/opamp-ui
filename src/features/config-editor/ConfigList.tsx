@@ -47,7 +47,17 @@ export function ConfigList() {
                     <OriginBadge origin={c.origin} />
                   </td>
                   <td>v{c.latest_version}</td>
-                  <td>{c.assigned_agents.toLocaleString()}</td>
+                  <td>
+                    {c.assigned_agents.toLocaleString()}
+                    {c.assigned_agents > 0 && (
+                      <span className="ml-2 text-xs text-muted">
+                        {Object.entries(c.assigned_by_version)
+                          .sort(([a], [b]) => Number(b) - Number(a))
+                          .map(([v, n]) => `v${v}: ${n.toLocaleString()}`)
+                          .join(', ')}
+                      </span>
+                    )}
+                  </td>
                   <td className="text-muted">{timeAgo(c.updated_at)}</td>
                 </tr>
               ))}

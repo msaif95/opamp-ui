@@ -7,9 +7,12 @@ import { openEventStream } from '../api-client/client'
 import { useAuth } from '../auth/AuthProvider'
 import { LogoMark, ThemeSwitch, Wordmark } from './Brand'
 
-const REFRESH_THROTTLE_MS = 2000
+const REFRESH_THROTTLE_MS = 5000
 
-/** Refetches agent queries when the backend reports agent changes, at most once per throttle window. */
+/**
+ * Refetches agent queries when the backend reports a real agent change (connect, disconnect, health, config),
+ * at most once per throttle window. Heartbeats are not reported, so an idle fleet causes no refetches.
+ */
 function useLiveAgentUpdates() {
   const qc = useQueryClient()
   useEffect(() => {
