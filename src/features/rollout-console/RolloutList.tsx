@@ -52,7 +52,7 @@ export function RolloutList() {
                     {r.config_name} v{r.config_version}
                   </td>
                   <td>
-                    <SelectorChips selector={r.selector} />
+                    <SelectorChips selector={r.selector} group={r.group_name} />
                   </td>
                   <td>{r.total_agents.toLocaleString()}</td>
                   <td>

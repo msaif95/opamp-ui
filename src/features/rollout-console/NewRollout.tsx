@@ -4,10 +4,21 @@ import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Selector } from '../../api-client/client'
-import { ErrorNote } from '../../components/ui'
+import { SelectorPicker } from '../../components/SelectorPicker'
 
-/** Attributes operators usually target by, shown first when agents report them. */
-const PREFERRED = ['env', 'deployment.environment', 'region', 'cloud.region', 'cloud.provider', 'cloud', 'dc', 'datacenter', 'team']
+/** Parses "1, 10, 50, 100" into increasing percentages ending at 100; null if invalid. */
+function parseSteps(text: string): number[] | null {
+  const steps = text
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map(Number)
+  const valid =
+    steps.length > 0 &&
+    steps.length <= 20 &&
+    steps.every((s, i) => Number.isInteger(s) && s > (steps[i - 1] ?? 0) && s <= 100) &&
+    steps[steps.length - 1] === 100
+  return valid ? steps : null
+}
 
 export function NewRollout() {
   const navigate = useNavigate()
@@ -15,18 +26,19 @@ export function NewRollout() {
   const [configId, setConfigId] = useState('')
   const [versionId, setVersionId] = useState('')
   const [selector, setSelector] = useState<Selector>({})
+  const [groupId, setGroupId] = useState('')
   const [allAgents, setAllAgents] = useState(false)
+  const [strategy, setStrategy] = useState<'batches' | 'canary'>('batches')
   const [batchSize, setBatchSize] = useState('100')
+  const [stepsText, setStepsText] = useState('1, 10, 50, 100')
   const [maxFailurePct, setMaxFailurePct] = useState('2')
+  const [autoRollback, setAutoRollback] = useState(false)
 
   const configs = useQuery({ queryKey: ['configs'], queryFn: api.configs })
   const detail = useQuery({ queryKey: ['configs', configId], queryFn: () => api.config(configId), enabled: configId !== '' })
   const versions = detail.data?.versions ?? []
   const chosenVersion = versionId || versions[0]?.id || ''
-
-  const facets = useQuery({ queryKey: ['agents', 'facets'], queryFn: api.facets })
-  const rank = (k: string) => (PREFERRED.includes(k) ? PREFERRED.indexOf(k) : PREFERRED.length)
-  const sortedFacets = [...(facets.data?.facets ?? [])].sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key))
+  const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
 
   const hasSelector = Object.keys(selector).length > 0
   const targeted = hasSelector || allAgents
@@ -37,22 +49,33 @@ export function NewRollout() {
     placeholderData: keepPreviousData,
   })
 
-  const toggle = (key: string, value: string) => {
-    const current = selector[key] ?? []
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
-    const rest = Object.fromEntries(Object.entries(selector).filter(([k]) => k !== key))
-    setSelector(next.length > 0 ? { ...rest, [key]: next } : rest)
+  const pickGroup = (id: string) => {
+    setGroupId(id)
     setAllAgents(false)
+    setSelector(groups.data?.groups.find((g) => g.id === id)?.selector ?? {})
   }
 
   const batch = Number(batchSize)
   const pct = Number(maxFailurePct)
-  const paramsValid = Number.isInteger(batch) && batch >= 1 && batch <= 5000 && pct >= 0 && pct <= 100
+  const steps = parseSteps(stepsText)
+  const paceValid = strategy === 'canary' ? steps !== null : Number.isInteger(batch) && batch >= 1 && batch <= 5000
+  const paramsValid = paceValid && maxFailurePct !== '' && pct >= 0 && pct <= 100
   const matched = preview.data?.total ?? 0
+  const pace =
+    strategy === 'canary' ? `in steps of ${steps?.join('% → ')}%` : `in batches of ${batch}`
 
   const create = useMutation({
     mutationFn: () =>
-      api.createRollout({ config_version_id: chosenVersion, selector, all_agents: allAgents, batch_size: batch, max_failure_pct: pct }),
+      api.createRollout({
+        config_version_id: chosenVersion,
+        selector,
+        all_agents: allAgents,
+        group_id: groupId || null,
+        batch_size: strategy === 'batches' ? batch : 100,
+        canary_steps_pct: strategy === 'canary' ? steps : null,
+        max_failure_pct: pct,
+        auto_rollback: autoRollback,
+      }),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['rollouts'] })
       navigate(`/rollouts/${r.id}`)
@@ -61,7 +84,7 @@ export function NewRollout() {
   const start = () => {
     const name = configs.data?.configs.find((c) => c.id === configId)?.name
     const version = versions.find((v) => v.id === chosenVersion)?.version
-    if (confirm(`Push ${name} v${version} to ${matched.toLocaleString()} agents in batches of ${batch}?`)) create.mutate()
+    if (confirm(`Push ${name} v${version} to ${matched.toLocaleString()} agents ${pace}?`)) create.mutate()
   }
 
   return (
@@ -102,41 +125,41 @@ export function NewRollout() {
       </section>
 
       <section className="card space-y-3 p-4">
-        <div>
-          <h2 className="font-medium">2. Target agents</h2>
-          <p className="text-xs text-muted">
-            Pick values to narrow the target. Values of the same attribute are combined with OR; different attributes with AND.
-          </p>
-        </div>
-        {facets.error && <ErrorNote error={facets.error} />}
-        {sortedFacets.map((f) => (
-          <div key={f.key} className="flex gap-3">
-            <div className="w-40 shrink-0 pt-1 font-mono text-xs text-muted">{f.key}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {f.values.map((v) => {
-                const on = selector[f.key]?.includes(v.value) ?? false
-                return (
-                  <button
-                    key={v.value}
-                    type="button"
-                    aria-pressed={on}
-                    className={clsx('chip', on ? 'border-accent bg-accent-soft text-accent' : 'hover:bg-hover')}
-                    onClick={() => toggle(f.key, v.value)}
-                  >
-                    {v.value || '(empty)'} <span className="text-faint">{v.count.toLocaleString()}</span>
-                  </button>
-                )
-              })}
-            </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-medium">2. Target agents</h2>
+            <p className="text-xs text-muted">
+              Use a saved group, or pick values. Values of the same attribute are combined with OR; different attributes with AND.
+            </p>
           </div>
-        ))}
+          <select className="input w-56" value={groupId} onChange={(e) => pickGroup(e.target.value)} aria-label="Saved group">
+            <option value="">No saved group</option>
+            {groups.data?.groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} ({g.members.toLocaleString()})
+              </option>
+            ))}
+          </select>
+        </div>
+        <SelectorPicker
+          selector={selector}
+          onChange={(s) => {
+            // Editing the target by hand means it is no longer the saved group.
+            setSelector(s)
+            setGroupId('')
+            setAllAgents(false)
+          }}
+        />
         <label className="flex items-center gap-2 border-t border-border pt-3 text-xs">
           <input
             type="checkbox"
             checked={allAgents}
             onChange={(e) => {
               setAllAgents(e.target.checked)
-              if (e.target.checked) setSelector({})
+              if (e.target.checked) {
+                setSelector({})
+                setGroupId('')
+              }
             }}
           />
           Target every agent in the fleet
@@ -152,20 +175,51 @@ export function NewRollout() {
 
       <section className="card space-y-3 p-4">
         <h2 className="font-medium">3. Pace and safety</h2>
+        <div className="seg">
+          <button type="button" className={strategy === 'batches' ? 'active' : ''} onClick={() => setStrategy('batches')}>
+            Fixed batches
+          </button>
+          <button type="button" className={strategy === 'canary' ? 'active' : ''} onClick={() => setStrategy('canary')}>
+            Canary steps
+          </button>
+        </div>
         <div className="flex flex-wrap gap-4">
+          {strategy === 'batches' ? (
+            <label className="space-y-1">
+              <span className="block text-xs text-muted">Agents per batch</span>
+              <input className="input w-40" type="number" min={1} max={5000} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} />
+            </label>
+          ) : (
+            <label className="space-y-1">
+              <span className="block text-xs text-muted">Cumulative % of the target at each step</span>
+              <input
+                className={clsx('input w-56', steps === null && 'border-danger')}
+                value={stepsText}
+                onChange={(e) => setStepsText(e.target.value)}
+                aria-label="Canary steps"
+              />
+            </label>
+          )}
           <label className="space-y-1">
-            <span className="block text-xs text-muted">Agents per batch</span>
-            <input className="input w-40" type="number" min={1} max={5000} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} />
-          </label>
-          <label className="space-y-1">
-            <span className="block text-xs text-muted">Pause if more than this % of a batch fails</span>
+            <span className="block text-xs text-muted">Stop if more than this % of a batch fails</span>
             <input className="input w-40" type="number" min={0} max={100} step={0.5} value={maxFailurePct} onChange={(e) => setMaxFailurePct(e.target.value)} />
           </label>
         </div>
+        {strategy === 'canary' && steps === null && (
+          <p className="text-xs text-danger">Enter increasing whole percentages ending at 100, for example 1, 10, 50, 100.</p>
+        )}
+        <label className="flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={autoRollback} onChange={(e) => setAutoRollback(e.target.checked)} />
+          When that limit is exceeded, roll back automatically instead of pausing
+        </label>
         <p className="text-xs text-muted">
           Agents are pushed in random order, one batch at a time. The next batch starts only when every agent in the current one has applied
           or failed.
-          {paramsValid && matched > 0 && ` This push needs ${Math.ceil(matched / batch).toLocaleString()} batches.`}
+          {paramsValid && matched > 0 && strategy === 'batches' && ` This push needs ${Math.ceil(matched / batch).toLocaleString()} batches.`}
+          {paramsValid &&
+            matched > 0 &&
+            strategy === 'canary' &&
+            ` Steps reach ${steps!.map((s) => Math.ceil((matched * s) / 100).toLocaleString()).join(', then ')} agents.`}
         </p>
       </section>
 

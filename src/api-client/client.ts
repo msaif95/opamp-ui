@@ -79,7 +79,32 @@ export interface Facet {
 }
 
 export type RolloutStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'rolled_back' | 'aborted'
-export type RolloutAgentStatus = 'pending' | 'offered' | 'applying' | 'applied' | 'failed' | 'skipped'
+export type RolloutAgentStatus = 'pending' | 'offered' | 'applying' | 'applied' | 'failed' | 'skipped' | 'rolled_back'
+
+export interface Group {
+  id: string
+  name: string
+  description: string
+  selector: Selector
+  members: number
+  created_at: string
+}
+
+export interface AuditEvent {
+  id: number
+  occurred_at: string
+  actor: string
+  actor_auth: string
+  action: string
+  target_type: string
+  target_id: string | null
+  details: Record<string, unknown>
+}
+
+export interface AuthConfig {
+  local: boolean
+  okta: boolean
+}
 
 export interface Rollout {
   id: string
@@ -88,8 +113,13 @@ export interface Rollout {
   config_name: string
   config_version: number
   selector: Selector
+  group_id: string | null
+  group_name: string | null
   batch_size: number
+  /** Cumulative percentage steps; null means fixed batches of batch_size. */
+  canary_steps_pct: number[] | null
   max_failure_pct: number
+  auto_rollback: boolean
   status: RolloutStatus
   batches_released: number
   total_batches: number
@@ -119,8 +149,11 @@ export interface NewRollout {
   config_version_id: string
   selector: Selector
   all_agents: boolean
+  group_id: string | null
   batch_size: number
+  canary_steps_pct: number[] | null
   max_failure_pct: number
+  auto_rollback: boolean
 }
 
 /** AgentCapabilities bit: the agent accepts remote config from the server. */
@@ -222,13 +255,23 @@ export const api = {
   deleteConfig: (id: string) => request<void>(`/configs/${id}`, { method: 'DELETE' }),
   validateConfig: (body: string) =>
     request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),
+  authConfig: () => request<AuthConfig>('/auth/config'),
+  groups: () => request<{ groups: Group[] }>('/groups'),
+  createGroup: (name: string, description: string, selector: Selector) =>
+    request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description, selector }) }),
+  deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: 'DELETE' }),
+  audit: (q: string, before?: number) => {
+    const p = new URLSearchParams({ limit: '100', q })
+    if (before !== undefined) p.set('before', String(before))
+    return request<{ events: AuditEvent[] }>(`/audit?${p}`)
+  },
   facets: () => request<{ facets: Facet[] }>('/agents/facets'),
   rollouts: () => request<{ rollouts: Rollout[] }>('/rollouts'),
   rollout: (id: string) => request<{ rollout: Rollout; problems: RolloutProblem[] }>(`/rollouts/${id}`),
   previewRollout: (selector: Selector) =>
     request<RolloutPreview>('/rollouts/preview', { method: 'POST', body: JSON.stringify({ selector }) }),
   createRollout: (r: NewRollout) => request<Rollout>('/rollouts', { method: 'POST', body: JSON.stringify(r) }),
-  rolloutAction: (id: string, action: 'pause' | 'resume' | 'abort') => request<void>(`/rollouts/${id}/${action}`, { method: 'POST' }),
+  rolloutAction: (id: string, action: 'pause' | 'resume' | 'abort' | 'rollback') => request<void>(`/rollouts/${id}/${action}`, { method: 'POST' }),
   apiKeys: () => request<{ api_keys: ApiKey[] }>('/credentials/api-keys'),
   issueApiKey: (name: string, expiresAt: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),

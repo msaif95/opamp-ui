@@ -1,9 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler, type Role, type User } from '../api-client/client'
 
+/**
+ * After single sign-on the backend redirects to `/#token=…` (or `/#login_error=…`). Runs once at module load,
+ * before the provider reads the stored token, and removes the fragment so the token never lingers in the URL.
+ */
+function consumeLoginFragment(): string | null {
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  const token = params.get('token')
+  const error = params.get('login_error')
+  if (!token && !error) return null
+  if (token) setToken(token)
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  return error
+}
+const ssoError = consumeLoginFragment()
+
 interface AuthState {
   user: User | null
   loading: boolean
+  /** Why the last single sign-on attempt failed, if it did. */
+  ssoError: string | null
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   can: (role: Role) => boolean
@@ -35,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
+      ssoError,
       logout,
       login: async (username, password) => {
         const res = await api.login(username, password)

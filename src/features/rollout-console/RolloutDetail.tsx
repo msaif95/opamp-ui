@@ -22,7 +22,7 @@ export function RolloutDetail() {
     },
   })
   const act = useMutation({
-    mutationFn: (action: 'pause' | 'resume' | 'abort') => api.rolloutAction(id, action),
+    mutationFn: (action: 'pause' | 'resume' | 'abort' | 'rollback') => api.rolloutAction(id, action),
     onSettled: () => qc.invalidateQueries({ queryKey: ['rollouts'] }),
   })
 
@@ -30,6 +30,8 @@ export function RolloutDetail() {
   if (!data) return <p className="text-muted">Loading…</p>
   const r = data.rollout
   const active = r.status === 'running' || r.status === 'paused'
+  const canRollBack = active || r.status === 'completed' || r.status === 'aborted'
+  const pace = r.canary_steps_pct ? `canary steps ${r.canary_steps_pct.join('% → ')}%` : `${r.batch_size} agents per batch`
 
   return (
     <div className="space-y-4">
@@ -47,15 +49,15 @@ export function RolloutDetail() {
             <RolloutStatusBadge rollout={r} />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-            <SelectorChips selector={r.selector} />
+            <SelectorChips selector={r.selector} group={r.group_name} />
             <span>
               · started by {r.created_by} {timeAgo(r.created_at)}
             </span>
           </div>
         </div>
-        {can('operator') && active && (
+        {can('operator') && canRollBack && (
           <div className="flex gap-2">
-            {r.status === 'running' ? (
+            {!active ? null : r.status === 'running' ? (
               <button className="btn" disabled={act.isPending} onClick={() => act.mutate('pause')}>
                 Pause
               </button>
@@ -70,26 +72,43 @@ export function RolloutDetail() {
                 Resume
               </button>
             )}
+            {active && (
+              <button
+                className="btn"
+                disabled={act.isPending}
+                onClick={() => {
+                  if (confirm('Abort this push? Agents not yet reached keep their current config. Agents already updated are not rolled back.'))
+                    act.mutate('abort')
+                }}
+              >
+                Abort
+              </button>
+            )}
             <button
               className="btn btn-danger"
               disabled={act.isPending}
               onClick={() => {
-                if (confirm('Abort this push? Agents not yet reached keep their current config. Agents already updated are not rolled back.'))
-                  act.mutate('abort')
+                if (
+                  confirm(
+                    'Roll back? Every agent this push changed is sent the config it had before. Agents that had no config before cannot be restored and keep the new one.',
+                  )
+                )
+                  act.mutate('rollback')
               }}
             >
-              Abort
+              Roll back
             </button>
           </div>
         )}
       </div>
       {act.error && <p className="text-xs text-danger">{act.error.message}</p>}
-      {r.status === 'paused' && r.error && <p className="card border-warning p-3 text-warning">{r.error}</p>}
+      {(r.status === 'paused' || r.status === 'rolled_back') && r.error && <p className="card border-warning p-3 text-warning">{r.error}</p>}
 
       <section className="card space-y-3 p-4">
         <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
           <span>
-            Batch {r.batches_released} of {r.total_batches} · {r.batch_size} agents per batch · pauses above {r.max_failure_pct}% failures per batch
+            Batch {r.batches_released} of {r.total_batches} · {pace} · {r.auto_rollback ? 'rolls back' : 'pauses'} above {r.max_failure_pct}%
+            failures per batch
           </span>
           <span>{r.total_agents.toLocaleString()} agents targeted</span>
         </div>
@@ -97,7 +116,7 @@ export function RolloutDetail() {
       </section>
 
       <section className="card overflow-auto">
-        <h2 className="border-b border-border px-4 py-2 font-medium">Failed and skipped agents</h2>
+        <h2 className="border-b border-border px-4 py-2 font-medium">Agents needing attention</h2>
         {data.problems.length === 0 ? (
           <p className="p-4 text-muted">None.</p>
         ) : (
@@ -119,7 +138,15 @@ export function RolloutDetail() {
                     </Link>
                   </td>
                   <td>{p.batch}</td>
-                  <td>{p.status === 'failed' ? <Badge tone="danger">Failed</Badge> : <Badge tone="neutral">Skipped</Badge>}</td>
+                  <td>
+                    {p.status === 'failed' ? (
+                      <Badge tone="danger">Failed</Badge>
+                    ) : p.status === 'rolled_back' ? (
+                      <Badge tone="warning">Not restored</Badge>
+                    ) : (
+                      <Badge tone="neutral">Skipped</Badge>
+                    )}
+                  </td>
                   <td>{p.error}</td>
                 </tr>
               ))}

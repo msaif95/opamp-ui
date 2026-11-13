@@ -8,6 +8,8 @@ import { ConfigDetail } from './features/config-editor/ConfigDetail'
 import { ConfigList } from './features/config-editor/ConfigList'
 import { NewConfig } from './features/config-editor/NewConfig'
 import { Credentials } from './features/credentials/Credentials'
+import { AuditLog } from './features/audit-log/AuditLog'
+import { Groups } from './features/targeting/Groups'
 import { NewRollout } from './features/rollout-console/NewRollout'
 import { RolloutDetail } from './features/rollout-console/RolloutDetail'
 import { RolloutList } from './features/rollout-console/RolloutList'
@@ -28,6 +30,8 @@ function Shell() {
         <Route path="/configs" element={<ConfigList />} />
         {can('operator') && <Route path="/configs/new" element={<NewConfig />} />}
         <Route path="/configs/:id" element={<ConfigDetail />} />
+        <Route path="/groups" element={<Groups />} />
+        {can('admin') && <Route path="/audit" element={<AuditLog />} />}
         <Route path="/rollouts" element={<RolloutList />} />
         {can('operator') && <Route path="/rollouts/new" element={<NewRollout />} />}
         <Route path="/rollouts/:id" element={<RolloutDetail />} />

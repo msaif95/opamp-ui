@@ -20,11 +20,12 @@ export function RolloutStatusBadge({ rollout }: { rollout: Rollout }) {
   )
 }
 
-export function SelectorChips({ selector }: { selector: Selector }) {
+export function SelectorChips({ selector, group }: { selector: Selector; group?: string | null }) {
   const entries = Object.entries(selector)
   if (entries.length === 0) return <span className="chip">All agents</span>
   return (
     <span className="inline-flex flex-wrap gap-1">
+      {group && <span className="chip border-accent text-accent">Group: {group}</span>}
       {entries.map(([k, vals]) => (
         <span key={k} className="chip">
           {k}: {vals.join(' or ')}
@@ -39,6 +40,7 @@ const segments: { status: RolloutAgentStatus; label: string; bar: string }[] = [
   { status: 'failed', label: 'Failed', bar: 'bg-danger' },
   { status: 'applying', label: 'Applying', bar: 'bg-warning' },
   { status: 'offered', label: 'Sent', bar: 'bg-accent' },
+  { status: 'rolled_back', label: 'Rolled back', bar: 'bg-muted' },
   { status: 'skipped', label: 'Skipped', bar: 'bg-faint' },
   { status: 'pending', label: 'Waiting', bar: 'bg-border-strong' },
 ]

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { FileCode, KeyRound, LogOut, Rocket, Server } from 'lucide-react'
+import { FileCode, KeyRound, LogOut, Rocket, ScrollText, Server, Tags } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
@@ -58,12 +58,20 @@ export function Layout() {
           <NavLink to="/configs" className={link}>
             <FileCode size={15} /> Configs
           </NavLink>
+          <NavLink to="/groups" className={link}>
+            <Tags size={15} /> Groups
+          </NavLink>
           <NavLink to="/rollouts" className={link}>
             <Rocket size={15} /> Bulk push
           </NavLink>
           {can('admin') && (
             <NavLink to="/credentials" className={link}>
               <KeyRound size={15} /> Agent credentials
+            </NavLink>
+          )}
+          {can('admin') && (
+            <NavLink to="/audit" className={link}>
+              <ScrollText size={15} /> Audit log
             </NavLink>
           )}
         </nav>
