@@ -56,7 +56,9 @@ export function FleetDashboard() {
   const [filterText, setFilterText] = useState('')
   const [filterError, setFilterError] = useState(false)
 
-  const summary = useQuery({ queryKey: ['summary', project], queryFn: () => api.summary(project || undefined), refetchInterval: BACKGROUND_REFRESH_MS })
+  /** The project filter value for a group's project. */
+  const projectOf = (id: string) => groups.data?.groups.find((g) => g.id === id)?.project_id ?? 'none'
+  const summary = useQuery({ queryKey: ['summary', project, groupId], queryFn: () => api.summary(project || undefined, groupId || undefined), refetchInterval: BACKGROUND_REFRESH_MS })
   const query: AgentQuery = { limit: PAGE_SIZE, offset: page * PAGE_SIZE, sort, order, attrs, groupId: groupId || undefined, project: project || undefined, ...views[view].filter }
   const agents = useQuery({
     queryKey: ['agents', query],
@@ -167,6 +169,8 @@ export function FleetDashboard() {
             aria-label="Project"
             onChange={(v) => {
               setProject(v)
+              // A group belongs to one project, so it cannot stay selected under a different one.
+              if (groupId && v !== '' && projectOf(groupId) !== v) setGroupId('')
               setPage(0)
             }}
             options={[
@@ -183,9 +187,17 @@ export function FleetDashboard() {
             aria-label="Group"
             onChange={(v) => {
               setGroupId(v)
+              // Picking a group shows its project, so the two filters and the cards always agree.
+              if (v && hasProjects) setProject(projectOf(v))
               setPage(0)
             }}
-            options={[{ value: '', label: 'All groups' }, ...(groups.data?.groups ?? []).map((g) => ({ value: g.id, label: g.name }))]}
+            options={[
+              { value: '', label: 'All groups' },
+              // With a project chosen, only that project's groups are offered.
+              ...(groups.data?.groups ?? [])
+                .filter((g) => project === '' || (g.project_id ?? 'none') === project)
+                .map((g) => ({ value: g.id, label: g.name, hint: `${g.members.toLocaleString()} agents` })),
+            ]}
           />
         )}
         <form onSubmit={addFilter}>

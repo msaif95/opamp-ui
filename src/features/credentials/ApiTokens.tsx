@@ -6,6 +6,7 @@ import { ProjectName, ProjectSelect, useHasProjects } from '../../components/Pro
 import { Modal } from '../../components/Dialogs'
 import { Badge, ErrorNote, SecretOnce } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { TabIntro } from './Credentials'
 import { confirmDialog } from '../../lib/dialog'
 import { Select } from '../../components/Select'
 
@@ -84,18 +85,19 @@ export function ApiTokens() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold">Console API tokens</h2>
-          <p className="max-w-4xl text-xs text-muted">
+      <TabIntro
+        text={
+          <>
             For the <code className="font-mono">opampctl</code> command-line tool and automation such as CI pipelines. A token acts with
-            the role you give it. These are not for collectors; collectors use the agent API keys above.
-          </p>
-        </div>
-        <button className="btn shrink-0" onClick={() => setCreating(true)}>
+            the role you give it. These are not for collectors; collectors use agent API keys.
+          </>
+        }
+        action={
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
           <Plus size={14} /> New token
         </button>
-      </div>
+        }
+      />
       <div className="card overflow-auto">
         {tokens.error ? (
           <ErrorNote error={tokens.error} />

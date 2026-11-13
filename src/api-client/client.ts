@@ -429,7 +429,12 @@ export const api = {
   login: (username: string, password: string) =>
     request<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request<User>('/auth/me'),
-  summary: (project?: string) => request<Summary>(`/summary${project ? `?project_id=${project}` : ''}`),
+  summary: (project?: string, group?: string) => {
+    const p = new URLSearchParams()
+    if (project) p.set('project_id', project)
+    if (group) p.set('group_id', group)
+    return request<Summary>(`/summary?${p}`)
+  },
   projects: () => request<{ projects: Project[] }>('/projects'),
   users: () => request<{ users: Person[] }>('/users'),
   createProject: (name: string, description: string) =>

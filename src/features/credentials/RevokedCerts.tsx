@@ -5,6 +5,7 @@ import { api } from '../../api-client/client'
 import { Modal } from '../../components/Dialogs'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { TabIntro } from './Credentials'
 import { confirmDialog } from '../../lib/dialog'
 
 /** Paste a certificate to block it, in a dialog. */
@@ -65,18 +66,19 @@ export function RevokedCerts() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold">Revoked client certificates</h2>
-          <p className="max-w-4xl text-xs text-muted">
+      <TabIntro
+        text={
+          <>
             Any certificate issued by the trusted CA can connect. Revoke one certificate to block it, for example after a host is
             compromised.
-          </p>
-        </div>
-        <button className="btn shrink-0" onClick={() => setRevoking(true)}>
+          </>
+        }
+        action={
+          <button className="btn btn-primary" onClick={() => setRevoking(true)}>
           <Plus size={14} /> Revoke a certificate
         </button>
-      </div>
+        }
+      />
       <div className="card overflow-auto">
         {certs.error ? (
           <ErrorNote error={certs.error} />

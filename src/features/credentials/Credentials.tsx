@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import * as Tabs from '@radix-ui/react-tabs'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, type ApiKey } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { Modal } from '../../components/Dialogs'
@@ -73,6 +75,23 @@ function IssueKey({ onClose }: { onClose: () => void }) {
   )
 }
 
+const TABS = [
+  { value: 'keys', label: 'Agent API keys' },
+  { value: 'certificates', label: 'Revoked certificates' },
+  { value: 'tokens', label: 'Console API tokens' },
+]
+
+/** What a tab is for, with its main action on the right. */
+// oxlint-disable-next-line react/only-export-components
+export function TabIntro({ text, action }: { text: ReactNode; action: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <p className="max-w-4xl text-xs text-muted">{text}</p>
+      <div className="shrink-0">{action}</div>
+    </div>
+  )
+}
+
 export function Credentials() {
   const qc = useQueryClient()
   const [issuing, setIssuing] = useState(false)
@@ -80,6 +99,17 @@ export function Credentials() {
   const hasProjects = useHasProjects()
 
   const keys = useQuery({ queryKey: ['api-keys'], queryFn: api.apiKeys })
+  // The other tabs' lists are fetched here too, so every tab can show how many active entries it holds.
+  const certs = useQuery({ queryKey: ['revoked-certs'], queryFn: api.revokedCerts })
+  const tokens = useQuery({ queryKey: ['api-tokens'], queryFn: api.apiTokens })
+  const counts: Record<string, number | undefined> = {
+    keys: keys.data?.api_keys.filter((k) => !k.revoked_at).length,
+    certificates: certs.data?.revoked_certs.length,
+    tokens: tokens.data?.tokens.filter((t) => !t.revoked_at).length,
+  }
+  // The open tab lives in the URL, so a reload or a shared link lands on the same one.
+  const [params, setParams] = useSearchParams()
+  const tab = TABS.some((t) => t.value === params.get('tab')) ? params.get('tab')! : TABS[0].value
   const refresh = () => qc.invalidateQueries({ queryKey: ['api-keys'] })
   const revoke = useMutation({ mutationFn: api.revokeCredential, onSuccess: refresh })
   const move = useMutation({
@@ -88,17 +118,32 @@ export function Credentials() {
   })
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <PageHeader
-          title="Agent credentials"
-          description="API keys that collectors connect with. A collector joins the project of its key. To install collectors with a new key in one step, use Fleet → Add collectors."
-          action={
-            <button className="btn btn-primary" onClick={() => setIssuing(true)}>
-              <Plus size={14} /> Issue API key
-            </button>
-          }
-        />
+    <div className="space-y-4">
+      <PageHeader title="Agent credentials" description="How collectors and automation prove who they are, and how to cut one off." />
+
+      <Tabs.Root value={tab} onValueChange={(v) => setParams(v === TABS[0].value ? {} : { tab: v }, { replace: true })}>
+        <Tabs.List className="flex gap-1 border-b border-border" aria-label="Kinds of credential">
+          {TABS.map((t) => (
+            <Tabs.Trigger
+              key={t.value}
+              value={t.value}
+              className="-mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 data-[state=active]:border-accent data-[state=active]:font-medium data-[state=active]:text-accent"
+            >
+              {t.label}
+              {counts[t.value] !== undefined && <span className="rounded-full bg-panel-2 px-1.5 text-[11px] text-muted">{counts[t.value]}</span>}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+
+        <Tabs.Content value="keys" className="space-y-4 pt-4 outline-none">
+          <TabIntro
+            text="API keys that collectors connect with. A collector joins the project of its key. To install collectors with a new key in one step, use Fleet → Add collectors."
+            action={
+              <button className="btn btn-primary" onClick={() => setIssuing(true)}>
+                <Plus size={14} /> Issue API key
+              </button>
+            }
+          />
 
         <div className="card overflow-auto">
           {keys.error ? (
@@ -173,11 +218,16 @@ export function Credentials() {
             </table>
           )}
           {(revoke.error ?? move.error) && <p className="p-3 text-xs text-danger">{(revoke.error ?? move.error)?.message}</p>}
-        </div>
-      </section>
+          </div>
+        </Tabs.Content>
 
-      <RevokedCerts />
-      <ApiTokens />
+        <Tabs.Content value="certificates" className="pt-4 outline-none">
+          <RevokedCerts />
+        </Tabs.Content>
+        <Tabs.Content value="tokens" className="pt-4 outline-none">
+          <ApiTokens />
+        </Tabs.Content>
+      </Tabs.Root>
 
       <Modal open={issuing} onClose={() => setIssuing(false)} title="Issue an agent API key">
         {issuing && <IssueKey onClose={() => setIssuing(false)} />}
