@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { FileCode, Plus, Rocket, Server, Tags } from 'lucide-react'
+import { FileCode, FolderKanban, Plus, Rocket, Server, Tags } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 import { api, type Agent, type AgentQuery, type TrendPoint } from '../../api-client/client'
@@ -90,7 +90,7 @@ function AttentionList({ title, filter, view, reason }: { title: string; filter:
 
 /** Landing page: how the fleet is doing now and over the last day, what needs attention, and recent activity. */
 export function Overview() {
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const summary = useQuery({ queryKey: ['summary', '', ''], queryFn: () => api.summary(), refetchInterval: 30_000 })
   const trend = useQuery({ queryKey: ['summary', 'history'], queryFn: () => api.summaryHistory(24), refetchInterval: 60_000 })
   const rollouts = useQuery({ queryKey: ['rollouts'], queryFn: api.rollouts, refetchInterval: 15_000 })
@@ -110,6 +110,7 @@ export function Overview() {
   // Nothing connected yet: show the way in rather than a page of zeroes.
   if (s?.total === 0) {
     const steps = [
+      { icon: FolderKanban, title: 'Create a project', text: 'Everything belongs to a project, and people get access project by project.', to: '/projects', done: (user?.projects.length ?? 0) > 0, admin: true },
       { icon: Server, title: 'Add collectors', text: 'Generate an install script that connects a collector to this console.', to: '/agents/install', done: false, admin: true },
       { icon: FileCode, title: 'Create a config', text: 'Build a pipeline from sources, processors and destinations, or write the YAML.', to: '/configs/build', done: (configs.data?.configs.length ?? 0) > 0 },
       { icon: Tags, title: 'Group collectors', text: 'Save a target such as "prod on AWS" to filter by and push to.', to: '/groups', done: (groups.data?.groups.length ?? 0) > 0 },
@@ -121,7 +122,7 @@ export function Overview() {
         <EmptyState icon={Server} title="Welcome to OpAMP Fleet">
           <p>No collectors are connected yet. These are the steps from an empty console to a managed fleet.</p>
         </EmptyState>
-        <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {steps.map((step, i) => (
             <li key={step.title} className="card flex flex-col p-4">
               <div className="flex items-center gap-2">

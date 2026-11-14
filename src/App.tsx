@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { DialogHost } from './components/Dialogs'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { NeedsProject } from './components/ProjectSelect'
 import { ToastHost } from './components/Toasts'
 import { Layout } from './components/Layout'
 import { AgentDetail } from './features/agent-detail/AgentDetail'
@@ -40,22 +41,22 @@ function Shell() {
         <Route path="/topology" element={<Topology />} />
         <Route path="/agents" element={<FleetDashboard />} />
         <Route path="/agents/compare" element={<CompareAgents />} />
-        {can('admin') && <Route path="/agents/install" element={<InstallCollector />} />}
+        {can('admin') && <Route path="/agents/install" element={<NeedsProject><InstallCollector /></NeedsProject>} />}
         <Route path="/agents/:uid" element={<AgentDetail />} />
-        <Route path="/configs" element={<ConfigList />} />
-        {can('operator') && <Route path="/configs/new" element={<NewConfig />} />}
-        {can('operator') && <Route path="/configs/build" element={<PipelineBuilder />} />}
-        {can('operator') && <Route path="/configs/:id/build" element={<PipelineBuilder />} />}
-        <Route path="/configs/:id" element={<ConfigDetail />} />
-        <Route path="/groups" element={<Groups />} />
+        <Route path="/configs" element={<NeedsProject><ConfigList /></NeedsProject>} />
+        {can('operator') && <Route path="/configs/new" element={<NeedsProject><NewConfig /></NeedsProject>} />}
+        {can('operator') && <Route path="/configs/build" element={<NeedsProject><PipelineBuilder /></NeedsProject>} />}
+        {can('operator') && <Route path="/configs/:id/build" element={<NeedsProject><PipelineBuilder /></NeedsProject>} />}
+        <Route path="/configs/:id" element={<NeedsProject><ConfigDetail /></NeedsProject>} />
+        <Route path="/groups" element={<NeedsProject><Groups /></NeedsProject>} />
         {can('admin') && <Route path="/projects" element={<Projects />} />}
         {can('admin') && <Route path="/users" element={<Users />} />}
         {can('admin') && <Route path="/audit" element={<AuditLog />} />}
         {can('admin') && <Route path="/system" element={<System />} />}
-        <Route path="/rollouts" element={<RolloutList />} />
-        {can('operator') && <Route path="/rollouts/new" element={<NewRollout />} />}
-        <Route path="/rollouts/:id" element={<RolloutDetail />} />
-        {can('admin') && <Route path="/credentials" element={<Credentials />} />}
+        <Route path="/rollouts" element={<NeedsProject><RolloutList /></NeedsProject>} />
+        {can('operator') && <Route path="/rollouts/new" element={<NeedsProject><NewRollout /></NeedsProject>} />}
+        <Route path="/rollouts/:id" element={<NeedsProject><RolloutDetail /></NeedsProject>} />
+        {can('admin') && <Route path="/credentials" element={<NeedsProject><Credentials /></NeedsProject>} />}
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Route>
     </Routes>

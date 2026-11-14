@@ -163,14 +163,14 @@ export function Credentials() {
                           disabled={k.revoked_at !== null || move.isPending}
                           aria-label={`Project of ${k.name}`}
                           onChange={(v) => {
-                            const target = v || null
                             void confirmDialog({
-                              title: `Move the key "${k.name}" to ${target ? 'that project' : 'no project'}?`,
+                              title: `Move the key "${k.name}" to another project?`,
                               body: 'Every collector using this key moves with it. People in the old project lose sight of those collectors.',
                               action: 'Move',
-                            }).then((ok) => ok && move.mutate({ id: k.id, project: target }))
+                            }).then((ok) => ok && move.mutate({ id: k.id, project: v }))
                           }}
-                          options={[{ value: '', label: 'No project' }, ...(user?.projects ?? []).map((p) => ({ value: p.id, label: p.name }))]}
+                          options={(user?.projects ?? []).map((p) => ({ value: p.id, label: p.name }))}
+                          placeholder="No project"
                         />
                       </td>
                     )}

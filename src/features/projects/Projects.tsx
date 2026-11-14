@@ -224,7 +224,7 @@ export function Projects() {
               {projects.data?.projects.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted">
-                    No projects yet. Until you create one, everything is outside any project and people see it according to their global role.
+                    No projects yet. Create one to start: collectors, API keys, configs, groups and bulk pushes all belong to a project.
                   </td>
                 </tr>
               )}
