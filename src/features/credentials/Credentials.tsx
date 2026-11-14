@@ -27,6 +27,7 @@ function expiryAfter(days: number): string | null {
 
 /** Issue an agent API key, in a dialog; the dialog then shows the secret once. */
 function IssueKey({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth()
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [expiresDays, setExpiresDays] = useState('90')
@@ -58,6 +59,7 @@ function IssueKey({ onClose }: { onClose: () => void }) {
         <input className="input w-full" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. dc1-collectors" autoFocus />
       </label>
       <ProjectSelect value={project} onChange={setProject} role="admin" label="Project its collectors join" />
+      {user?.projects.length === 0 && <p className="text-xs text-warning">Create a project first (Admin → Projects): every key belongs to one.</p>}
       <label className="block space-y-1">
         <span className="block text-xs text-muted">Expires in (days, 0 = never)</span>
         <input className="input w-40" type="number" min={0} value={expiresDays} onChange={(e) => setExpiresDays(e.target.value)} />
@@ -67,7 +69,7 @@ function IssueKey({ onClose }: { onClose: () => void }) {
         <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn btn-primary" disabled={!name.trim() || issue.isPending}>
+        <button className="btn btn-primary" disabled={!name.trim() || !project || issue.isPending}>
           Issue API key
         </button>
       </div>

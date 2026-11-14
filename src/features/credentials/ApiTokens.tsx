@@ -67,7 +67,7 @@ function NewToken({ onClose }: { onClose: () => void }) {
         <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn btn-primary" disabled={!name.trim() || create.isPending}>
+        <button className="btn btn-primary" disabled={!name.trim() || (role !== 'admin' && !project) || create.isPending}>
           Create token
         </button>
       </div>

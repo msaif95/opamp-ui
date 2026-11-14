@@ -56,7 +56,7 @@ function Shell() {
         <Route path="/rollouts" element={<NeedsProject><RolloutList /></NeedsProject>} />
         {can('operator') && <Route path="/rollouts/new" element={<NeedsProject><NewRollout /></NeedsProject>} />}
         <Route path="/rollouts/:id" element={<NeedsProject><RolloutDetail /></NeedsProject>} />
-        {can('admin') && <Route path="/credentials" element={<NeedsProject><Credentials /></NeedsProject>} />}
+        {can('admin') && <Route path="/credentials" element={<Credentials />} />}
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Route>
     </Routes>
