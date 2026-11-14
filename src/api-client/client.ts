@@ -532,7 +532,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await res.json().catch(() => null)
     throw new ApiError(res.status, body?.error ?? res.statusText, body?.issues)
   }
-  return res.status === 204 ? (undefined as T) : res.json()
+  if (res.status === 204 || res.status === 202) return undefined as T
+  return res.json()
 }
 
 function agentParams(q: AgentQuery) {
