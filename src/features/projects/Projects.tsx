@@ -156,8 +156,11 @@ export function Projects() {
   const { reloadUser } = useAuth()
   const [creating, setCreating] = useState(false)
   const [managing, setManaging] = useState<string | null>(null)
-  const [showDeleted, setShowDeleted] = useState(false)
-  const projects = useQuery({ queryKey: ['projects', showDeleted], queryFn: () => api.projects(showDeleted) })
+  // Deleted projects are listed with the active ones; the filter narrows the list to them.
+  const [onlyDeleted, setOnlyDeleted] = useState(false)
+  const projects = useQuery({ queryKey: ['projects', 'with-deleted'], queryFn: () => api.projects(true) })
+  const shown = (projects.data?.projects ?? []).filter((p) => !onlyDeleted || p.deleted_at)
+  const deletedCount = (projects.data?.projects ?? []).filter((p) => p.deleted_at).length
   const remove = useMutation({
     mutationFn: api.deleteProject,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['projects'] }), reloadUser()]),
@@ -177,8 +180,8 @@ export function Projects() {
       />
 
       <label className="flex items-center gap-2 text-xs">
-        <input type="checkbox" className="accent-[var(--c-accent)]" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
-        Show deleted projects
+        <input type="checkbox" className="accent-[var(--c-accent)]" checked={onlyDeleted} onChange={(e) => setOnlyDeleted(e.target.checked)} />
+        Show only deleted projects ({deletedCount})
       </label>
       {remove.data && (
         <p className="card border-warning p-3 text-warning">
@@ -203,7 +206,7 @@ export function Projects() {
               </tr>
             </thead>
             <tbody>
-              {projects.data?.projects.map((p) => (
+              {shown.map((p) => (
                 <tr key={p.id} className={p.deleted_at ? 'text-muted' : undefined}>
                   <td>
                     <div className="font-medium">
@@ -232,7 +235,7 @@ export function Projects() {
                           onClick={() => {
                             void confirmDialog({
                               title: `Delete project "${p.name}"?`,
-                              body: `Its API keys and tokens are revoked, so its ${p.agents.toLocaleString()} collectors are disconnected within about 30 seconds and cannot reconnect. Pushes in progress are aborted and its ${p.members} people lose access. The project and its records are kept and shown under "Show deleted"; this cannot be undone.`,
+                              body: `Its API keys and tokens are revoked, so its ${p.agents.toLocaleString()} collectors are disconnected within about 30 seconds and cannot reconnect. Pushes in progress are aborted and its ${p.members} people lose access. The project and its records are kept and stay in this list marked as deleted; this cannot be undone.`,
                               action: 'Delete project',
                               danger: true,
                             }).then((ok) => ok && remove.mutate(p.id))
@@ -245,10 +248,12 @@ export function Projects() {
                   </td>
                 </tr>
               ))}
-              {projects.data?.projects.length === 0 && (
+              {projects.data && shown.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted">
-                    No projects yet. Create one to start: collectors, API keys, configs, groups and bulk pushes all belong to a project.
+                    {onlyDeleted
+                      ? 'No project has been deleted.'
+                      : 'No projects yet. Create one to start: collectors, API keys, configs, groups and bulk pushes all belong to a project.'}
                   </td>
                 </tr>
               )}
