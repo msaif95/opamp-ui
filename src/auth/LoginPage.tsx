@@ -77,7 +77,7 @@ export function LoginPage() {
       </form>
         )}
       </div>
-      <div className="relative w-32">
+      <div className="relative w-80">
         <ThemeSwitch />
       </div>
     </main>

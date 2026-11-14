@@ -286,11 +286,17 @@ export function Layout() {
             <NavGroup group={CONFIGURATION} collapsed={collapsed} />
             {can('admin') && <NavGroup group={ADMIN} collapsed={collapsed} />}
           </nav>
-          {!collapsed && (
-            <button className="mb-2 flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted hover:bg-hover hover:text-fg" onClick={openHelp}>
-              <Keyboard size={15} /> Keyboard shortcuts
+          <Tip label="Keyboard shortcuts (?)" show={collapsed}>
+            <button
+              className={clsx('mb-2 flex h-8 items-center gap-2 rounded-md text-xs text-muted hover:bg-hover hover:text-fg', collapsed ? 'justify-center' : 'px-2.5')}
+              onClick={openHelp}
+              aria-label="Keyboard shortcuts"
+              aria-keyshortcuts="?"
+            >
+              <Keyboard size={15} className="shrink-0" />
+              {!collapsed && 'Keyboard shortcuts'}
             </button>
-          )}
+          </Tip>
           <div className="pb-3">
             <ThemeSwitch compact={collapsed} />
           </div>
