@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { api, type Project, type Role } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { Modal } from '../../components/Dialogs'
-import { ErrorNote, PageHeader } from '../../components/ui'
+import { Badge, ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
 import { confirmDialog } from '../../lib/dialog'
 import { Select } from '../../components/Select'
@@ -156,7 +156,8 @@ export function Projects() {
   const { reloadUser } = useAuth()
   const [creating, setCreating] = useState(false)
   const [managing, setManaging] = useState<string | null>(null)
-  const projects = useQuery({ queryKey: ['projects'], queryFn: api.projects })
+  const [showDeleted, setShowDeleted] = useState(false)
+  const projects = useQuery({ queryKey: ['projects', showDeleted], queryFn: () => api.projects(showDeleted) })
   const remove = useMutation({
     mutationFn: api.deleteProject,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['projects'] }), reloadUser()]),
@@ -175,6 +176,16 @@ export function Projects() {
         }
       />
 
+      <label className="flex items-center gap-2 text-xs">
+        <input type="checkbox" className="accent-[var(--c-accent)]" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
+        Show deleted projects
+      </label>
+      {remove.data && (
+        <p className="card border-warning p-3 text-warning">
+          Project deleted: {remove.data.api_keys_revoked} API keys and {remove.data.tokens_revoked} tokens revoked, {remove.data.collectors}{' '}
+          collectors cut off, {remove.data.pushes_aborted} pushes aborted.
+        </p>
+      )}
       <div className="card overflow-auto">
         {projects.error ? (
           <ErrorNote error={projects.error} />
@@ -193,9 +204,11 @@ export function Projects() {
             </thead>
             <tbody>
               {projects.data?.projects.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} className={p.deleted_at ? 'text-muted' : undefined}>
                   <td>
-                    <div className="font-medium">{p.name}</div>
+                    <div className="font-medium">
+                      {p.name} {p.deleted_at && <Badge tone="neutral">Deleted</Badge>}
+                    </div>
                     {p.description && <div className="text-xs text-muted">{p.description}</div>}
                   </td>
                   <td>{p.agents.toLocaleString()}</td>
@@ -204,20 +217,31 @@ export function Projects() {
                     by {p.created_by}, {timeAgo(p.created_at)}
                   </td>
                   <td className="space-x-2 text-right whitespace-nowrap">
-                    <button className="btn btn-sm" onClick={() => setManaging(p.id)}>
-                      Manage people
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      disabled={remove.isPending}
-                      onClick={() => {
-                        void confirmDialog(
-                          `Delete project "${p.name}"? This only works once it owns no collectors, keys, configs, groups or pushes.`,
-                        ).then((ok) => ok && remove.mutate(p.id))
-                      }}
-                    >
-                      Delete
-                    </button>
+                    {p.deleted_at ? (
+                      <span className="text-xs">
+                        by {p.deleted_by}, {timeAgo(p.deleted_at)}
+                      </span>
+                    ) : (
+                      <>
+                        <button className="btn btn-sm" onClick={() => setManaging(p.id)}>
+                          Manage people
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          disabled={remove.isPending}
+                          onClick={() => {
+                            void confirmDialog({
+                              title: `Delete project "${p.name}"?`,
+                              body: `Its API keys and tokens are revoked, so its ${p.agents.toLocaleString()} collectors are disconnected within about 30 seconds and cannot reconnect. Pushes in progress are aborted and its ${p.members} people lose access. The project and its records are kept and shown under "Show deleted"; this cannot be undone.`,
+                              action: 'Delete project',
+                              danger: true,
+                            }).then((ok) => ok && remove.mutate(p.id))
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

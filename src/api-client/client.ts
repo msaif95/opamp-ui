@@ -30,6 +30,9 @@ export interface Project {
   description: string
   created_by: string
   created_at: string
+  /** Set once the project has been deleted; it is then kept only as a record. */
+  deleted_at: string | null
+  deleted_by: string | null
   members: number
   agents: number
 }
@@ -575,7 +578,8 @@ export const api = {
     if (group) p.set('group_id', group)
     return request<Summary>(`/summary?${p}`)
   },
-  projects: () => request<{ projects: Project[] }>('/projects'),
+  /** Active projects; administrators can also ask for deleted ones, which are kept as a record. */
+  projects: (includeDeleted = false) => request<{ projects: Project[] }>(`/projects${includeDeleted ? '?include_deleted=true' : ''}`),
   users: () => request<{ users: Person[] }>('/users'),
   secrets: () => request<{ secrets: ConfigSecret[]; enabled: boolean }>('/secrets'),
   setSecret: (name: string, value: string, project_id: string | null) =>
@@ -584,7 +588,8 @@ export const api = {
   verifyAudit: () => request<{ intact: boolean; first_broken_event_id: number | null }>('/audit/verify'),
   createProject: (name: string, description: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name, description }) }),
-  deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
+  deleteProject: (id: string) =>
+    request<{ api_keys_revoked: number; tokens_revoked: number; collectors: number; pushes_aborted: number }>(`/projects/${id}`, { method: 'DELETE' }),
   projectMembers: (id: string) => request<{ members: ProjectMember[] }>(`/projects/${id}/members`),
   setProjectMember: (id: string, subject: string, role: Role) =>
     request<void>(`/projects/${id}/members`, { method: 'PUT', body: JSON.stringify({ subject, role }) }),

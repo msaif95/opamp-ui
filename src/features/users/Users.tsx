@@ -12,7 +12,7 @@ import { PROJECT_ROLES } from '../projects/Projects'
 /** Form in a dialog: add a person (existing, or by sign-in name) to a project with a role. */
 function AddToProject({ person, onClose }: { person: Person | 'new'; onClose: () => void }) {
   const qc = useQueryClient()
-  const projects = useQuery({ queryKey: ['projects'], queryFn: api.projects })
+  const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.projects() })
   const [subject, setSubject] = useState('')
   const [projectId, setProjectId] = useState('')
   const [role, setRole] = useState<Role>('viewer')
