@@ -539,6 +539,56 @@ export interface DeletedAgentDetail extends DeletedAgent {
   history: { at: string; kind: string; detail: AgentEvent['detail'] }[]
 }
 
+/** The headline of a compliance report. */
+export interface ReportSummary {
+  collectors: number
+  connected: number
+  healthy: number
+  unhealthy: number
+  with_config: number
+  in_sync: number
+  config_failed: number
+  paused: number
+  /** Collectors removed from the fleet in the period. */
+  removed: number
+  /** Audit events in the period other than sign-ins. */
+  changes: number
+  config_changes: number
+  pushes: number
+  access_changes: number
+  failed_sign_ins: number
+  /** Whether the audit log's hash chain verified when the report was made. */
+  audit_intact: boolean
+}
+
+/** A stored compliance report, as listed (its detail is only in the downloads). */
+export interface ComplianceReport {
+  id: string
+  name: string
+  schedule_id: string | null
+  period_from: string
+  period_to: string
+  generated_at: string
+  generated_by: string
+  summary: ReportSummary
+}
+
+export type ReportFrequency = 'daily' | 'weekly' | 'monthly'
+/** html: printable page. json: everything. collectors / changes: CSV of the fleet snapshot / the audit trail. */
+export type ReportFormat = 'html' | 'json' | 'collectors' | 'changes'
+
+/** Produces a report for each whole day, week or month (UTC). */
+export interface ReportSchedule {
+  id: string
+  name: string
+  frequency: ReportFrequency
+  enabled: boolean
+  created_by: string
+  created_at: string
+  last_run_at: string | null
+  next_run_at: string
+}
+
 export type Signal = 'logs' | 'traces' | 'metrics'
 
 /** One processor of a previewed pipeline and what it did to the sample. */
@@ -711,6 +761,18 @@ export const api = {
     p.set('format', format)
     return download(`/agents/export?${p}`, `collectors.${format}`)
   },
+  reports: () => request<{ reports: ComplianceReport[] }>('/reports'),
+  /** Makes a compliance report now, covering the last `days` days. */
+  createReport: (name: string, days: number) => request<ComplianceReport>('/reports', { method: 'POST', body: JSON.stringify({ name, days }) }),
+  downloadReport: (id: string, format: ReportFormat) => download(`/reports/${id}/download?format=${format}`, `compliance-report.${format === 'html' || format === 'json' ? format : 'csv'}`),
+  deleteReport: (id: string) => request<void>(`/reports/${id}`, { method: 'DELETE' }),
+  reportSchedules: () => request<{ schedules: ReportSchedule[] }>('/reports/schedules'),
+  createReportSchedule: (name: string, frequency: ReportFrequency) =>
+    request<ReportSchedule>('/reports/schedules', { method: 'POST', body: JSON.stringify({ name, frequency }) }),
+  setReportScheduleEnabled: (id: string, enabled: boolean) => request<ReportSchedule>(`/reports/schedules/${id}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  deleteReportSchedule: (id: string) => request<void>(`/reports/schedules/${id}`, { method: 'DELETE' }),
+  /** Makes a schedule's report for the last whole period straight away. */
+  runReportSchedule: (id: string) => request<ComplianceReport>(`/reports/schedules/${id}/run`, { method: 'POST' }),
   exportAudit: (q: string, format: 'csv' | 'json') => download(`/audit/export?${new URLSearchParams({ q, format })}`, `audit-log.${format}`),
   summaryHistory: (hours: number) => request<{ points: TrendPoint[] }>(`/summary/history?hours=${hours}`),
   breakdown: (by: string[]) => request<{ by: string[]; rows: BreakdownRow[] }>(`/agents/breakdown?${new URLSearchParams(by.map((k) => ['by', k]))}`),

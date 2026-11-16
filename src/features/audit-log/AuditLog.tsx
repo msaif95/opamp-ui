@@ -2,10 +2,12 @@ import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { api } from '../../api-client/client'
-import { ErrorNote, PageHeader } from '../../components/ui'
+import { ErrorNote } from '../../components/ui'
+import { TabIntro } from '../credentials/Credentials'
 
 const PAGE = 100
 
+/** The audit log itself: the "Audit log" tab of the Audit and compliance page. */
 export function AuditLog() {
   const verify = useMutation({ mutationFn: api.verifyAudit })
   // Downloads what the current search matches (everything when the search is empty), up to 100,000 events.
@@ -26,12 +28,11 @@ export function AuditLog() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Audit log"
-        description="Every sign-in and every change made through the console, the command-line tool or by the system itself. Events cannot be edited or deleted, and each is chained to the one before it so tampering is detectable."
+    <section className="space-y-4">
+      <TabIntro
+        text="Every sign-in and every change made through the console, the command-line tool or by the system itself. Events cannot be edited or deleted, and each is chained to the one before it so tampering is detectable."
         action={
-          <form onSubmit={submit} className="flex gap-2">
+          <form onSubmit={submit} className="flex flex-wrap justify-end gap-2">
             <input className="input w-72" placeholder="Search action, user or target" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Search the audit log" />
             <button className="btn">Search</button>
             {(['csv', 'json'] as const).map((format) => (
@@ -103,6 +104,6 @@ export function AuditLog() {
           {log.isFetchingNextPage ? 'Loading…' : 'Load older events'}
         </button>
       )}
-    </div>
+    </section>
   )
 }

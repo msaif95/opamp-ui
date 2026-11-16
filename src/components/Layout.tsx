@@ -87,7 +87,7 @@ ADMIN.items = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/credentials', label: 'Agent credentials', icon: KeyRound },
-  { to: '/audit', label: 'Audit log', icon: ScrollText },
+  { to: '/audit', label: 'Audit & compliance', icon: ScrollText },
   { to: '/system', label: 'System', icon: Activity },
 ]
 

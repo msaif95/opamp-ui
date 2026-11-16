@@ -13,7 +13,7 @@ import { ConfigList } from './features/config-editor/ConfigList'
 import { NewConfig } from './features/config-editor/NewConfig'
 import { PipelineBuilder } from './features/config-builder/PipelineBuilder'
 import { Credentials } from './features/credentials/Credentials'
-import { AuditLog } from './features/audit-log/AuditLog'
+import { Compliance } from './features/compliance/Compliance'
 import { InstallCollector } from './features/install/InstallCollector'
 import { System } from './features/system/System'
 import { Groups } from './features/targeting/Groups'
@@ -53,7 +53,8 @@ function Shell() {
         <Route path="/groups" element={<NeedsProject><Groups /></NeedsProject>} />
         {can('admin') && <Route path="/projects" element={<Projects />} />}
         {can('admin') && <Route path="/users" element={<Users />} />}
-        {can('admin') && <Route path="/audit" element={<AuditLog />} />}
+        {can('admin') && <Route path="/audit" element={<Compliance />} />}
+        {can('admin') && <Route path="/compliance" element={<Navigate to="/audit?tab=reports" replace />} />}
         {can('admin') && <Route path="/system" element={<System />} />}
         <Route path="/rollouts" element={<NeedsProject><RolloutList /></NeedsProject>} />
         {can('operator') && <Route path="/rollouts/new" element={<NeedsProject><NewRollout /></NeedsProject>} />}

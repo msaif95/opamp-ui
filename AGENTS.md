@@ -74,3 +74,6 @@ with its own theme.
 - Effect preview: `features/config-editor/EffectPreview.tsx` takes a YAML `body` and is shown as "Preview effect" on
   the config page (third view beside Content / Compare, uses the unsaved draft) and as a card in the builder.
   Attribute diffing is `lib/preview.ts`. Keep the wording honest that it is a model, not a collector run.
+- Audit and compliance is one admin page at `/audit` (`features/compliance/Compliance.tsx`) with tabs Audit log
+  (`features/audit-log/AuditLog.tsx`, tab content only), Reports and Schedules; `/compliance` redirects to
+  `/audit?tab=reports`. Reports are downloaded (HTML / CSV / JSON) through `api.downloadReport`, not rendered here.

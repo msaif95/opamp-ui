@@ -29,6 +29,7 @@ const PAGES: { to: string; title: string; admin?: boolean }[] = [
   { to: '/users', title: 'Users', admin: true },
   { to: '/credentials', title: 'Agent credentials', admin: true },
   { to: '/audit', title: 'Audit log', admin: true },
+  { to: '/audit?tab=reports', title: 'Compliance reports', admin: true },
   { to: '/system', title: 'System', admin: true },
 ]
 
