@@ -539,6 +539,53 @@ export interface DeletedAgentDetail extends DeletedAgent {
   history: { at: string; kind: string; detail: AgentEvent['detail'] }[]
 }
 
+export type Signal = 'logs' | 'traces' | 'metrics'
+
+/** One processor of a previewed pipeline and what it did to the sample. */
+export interface PreviewStep {
+  /** The processor's name in the config, e.g. "attributes/2". */
+  id: string
+  component: string
+  /** applied: modelled. approximate: right in size, illustrative in detail. passthrough: changes nothing by design. not_previewed: not modelled. */
+  status: 'applied' | 'approximate' | 'passthrough' | 'not_previewed'
+  note: string
+  in: number
+  out: number
+  dropped: number
+  changed: number
+}
+
+export interface PreviewSnapshot {
+  resource: Record<string, string>
+  attributes: Record<string, string>
+}
+
+/** One sample record before and after the pipeline; `after` is null when it was dropped. */
+export interface PreviewRecord {
+  title: string
+  detail: string
+  before: PreviewSnapshot
+  after: PreviewSnapshot | null
+  dropped_by?: string
+  changed_by: string[]
+}
+
+export interface ConfigPreview {
+  signal: Signal
+  /** Signals the config has pipelines for, and the pipelines of this signal. */
+  signals: Signal[]
+  pipeline: string
+  pipelines: string[]
+  steps: PreviewStep[]
+  records: PreviewRecord[]
+  in: number
+  out: number
+  /** False when a processor was not modelled or only approximated. */
+  exact: boolean
+  /** Sample records beyond the limit that were not previewed. */
+  left_out: number
+}
+
 export type BulkAgentAction = 'restart' | 'pause' | 'resume' | 'delete' | 'label'
 
 /** A change to labels: keys to add or overwrite, and keys to take off. */
@@ -719,6 +766,10 @@ export const api = {
   addBuiltVersion: (id: string, builder: BuilderSpec, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ builder, description }) }),
   deleteConfig: (id: string) => request<void>(`/configs/${id}`, { method: 'DELETE' }),
+  /** What the config's processors would do to sample telemetry (built in, or `sample` as OTLP JSON). Nothing is saved. */
+  previewConfig: (req: { body: string; signal?: string; pipeline?: string; sample?: string }) =>
+    request<ConfigPreview>('/configs/preview', { method: 'POST', body: JSON.stringify(req) }),
+  previewSamples: () => request<Record<Signal, string>>('/configs/preview/samples'),
   validateConfig: (body: string) =>
     request<{ issues: Issue[] }>('/configs/validate', { method: 'POST', body: JSON.stringify({ body }) }),
   system: () => request<SystemInfo>('/system'),

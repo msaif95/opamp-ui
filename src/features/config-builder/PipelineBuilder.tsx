@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type BuilderComponent, type BuilderKind, type BuilderSpec, type BuilderType } from '../../api-client/client'
 import { ProjectSelect } from '../../components/ProjectSelect'
 import { ErrorNote } from '../../components/ui'
+import { EffectPreview } from '../config-editor/EffectPreview'
 import { IssueList } from '../config-editor/parts'
 import { ComponentForm } from './ComponentForm'
 import { LibraryItemEditor } from './LibraryItemEditor'
@@ -249,6 +250,13 @@ function BuilderBody({
           <p className="p-4 text-muted">Fix the problems above to see the config.</p>
         )}
       </section>
+
+      {!empty && preview.data?.body && (
+        <section className="card">
+          <h2 className="border-b border-border px-4 py-2 font-medium">Preview the effect on telemetry</h2>
+          <EffectPreview body={preview.data.body} />
+        </section>
+      )}
 
       <section className="card flex flex-wrap items-end gap-3 p-4">
         {!configId && <ProjectSelect value={chosenProject} onChange={setChosenProject} />}

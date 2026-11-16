@@ -71,3 +71,6 @@ with its own theme.
   attribute `label.owner` everywhere else (selector picker, filters); a chip in the fleet table filters by it.
 - Token rate limits: API tokens tab (`features/credentials/ApiTokens.tsx`), in the create dialog and a per-row
   "Rate limit" dialog; blank = deployment default (read from `/system`), 0 = no limit (`lib/limits.ts`).
+- Effect preview: `features/config-editor/EffectPreview.tsx` takes a YAML `body` and is shown as "Preview effect" on
+  the config page (third view beside Content / Compare, uses the unsaved draft) and as a card in the builder.
+  Attribute diffing is `lib/preview.ts`. Keep the wording honest that it is a model, not a collector run.

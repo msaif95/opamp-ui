@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { Select } from '../../components/Select'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { EffectPreview } from './EffectPreview'
 import { DiffView, IssueList, OriginBadge, SideBySideDiff, YamlEditor } from './parts'
 import { confirmDialog } from '../../lib/dialog'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
@@ -21,7 +22,9 @@ export function ConfigDetail() {
   const [selected, setSelected] = useState<number | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [description, setDescription] = useState('')
-  const [showDiff, setShowDiff] = useState(false)
+  const [mode, setMode] = useState<'content' | 'compare' | 'preview'>('content')
+  const showDiff = mode === 'compare'
+  const previewing = mode === 'preview'
   // The version compared against; null follows the shown version (the one before it, or the saved text while editing).
   const [base, setBase] = useState<number | null>(null)
   const [layout, setLayout] = useState<'split' | 'unified'>('split')
@@ -157,16 +160,19 @@ export function ConfigDetail() {
                 {dirty && <span className="ml-2 text-xs font-normal text-warning">edited, not saved</span>}
               </h2>
               <div className="seg">
-                <button className={diffing ? '' : 'active'} onClick={() => setShowDiff(false)}>
+                <button className={diffing || previewing ? '' : 'active'} onClick={() => setMode('content')}>
                   Content
                 </button>
                 <button
                   className={diffing ? 'active' : ''}
                   disabled={numbers.length <= 1 && !dirty}
                   title={numbers.length <= 1 && !dirty ? 'There is only one version' : undefined}
-                  onClick={() => setShowDiff(true)}
+                  onClick={() => setMode('compare')}
                 >
                   Compare
+                </button>
+                <button className={previewing ? 'active' : ''} disabled={!body} title="See what the processors would do to sample telemetry" onClick={() => setMode('preview')}>
+                  Preview effect
                 </button>
               </div>
             </div>
@@ -205,6 +211,8 @@ export function ConfigDetail() {
             )}
             {version.error ? (
               <ErrorNote error={version.error} />
+            ) : previewing ? (
+              <EffectPreview body={body} />
             ) : diffing ? (
               compared.error ? (
                 <ErrorNote error={compared.error} />

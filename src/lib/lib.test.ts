@@ -3,6 +3,7 @@ import { groupFailures } from './bulk'
 import { diffLines, sideBySide } from './diff'
 import { readKeys, readLabels } from './labels'
 import { limitText, readLimit } from './limits'
+import { attributeChanges } from './preview'
 import { parseSteps } from './steps'
 import { timeAgo } from './time'
 
@@ -106,6 +107,20 @@ describe('rate limit fields', () => {
     expect(limitText(null, 0)).toEqual({ text: 'No limit', inherited: true })
     expect(limitText(0, 1200)).toEqual({ text: 'No limit', inherited: false })
     expect(limitText(300, 1200)).toEqual({ text: '300', inherited: false })
+  })
+})
+
+describe('attributeChanges', () => {
+  it('lists removals, changes and additions before what stayed the same', () => {
+    const before = { resource: { env: 'prod', host: 'a' }, attributes: { email: 'x', route: '/a' } }
+    const after = { resource: { env: 'live', team: 'pay' }, attributes: { route: '/a' } }
+    expect(attributeChanges(before, after)).toEqual([
+      { scope: 'resource', key: 'host', kind: 'removed', before: 'a', after: undefined },
+      { scope: 'record', key: 'email', kind: 'removed', before: 'x', after: undefined },
+      { scope: 'resource', key: 'env', kind: 'changed', before: 'prod', after: 'live' },
+      { scope: 'resource', key: 'team', kind: 'added', before: undefined, after: 'pay' },
+      { scope: 'record', key: 'route', kind: 'same', before: '/a', after: '/a' },
+    ])
   })
 })
 
