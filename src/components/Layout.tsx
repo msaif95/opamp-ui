@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, Keyboard, LayoutDashboard, LogOut, Network, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Search, Server, ShieldCheck, SlidersHorizontal, Tags, Users, type LucideIcon } from 'lucide-react'
+import { Activity, ChevronRight, FileCode, FolderKanban, KeyRound, Keyboard, LayoutDashboard, LogOut, Network, PanelLeftClose, PanelLeftOpen, Rocket, ScrollText, Search, Server, ShieldCheck, SlidersHorizontal, Tags, Terminal, Users, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { openEventStream } from '../api-client/client'
@@ -57,6 +57,9 @@ const NAV: NavItem[] = [
   { to: '/agents', label: 'Fleet', icon: Server },
   { to: '/topology', label: 'Topology', icon: Network },
 ]
+
+/** For people automating the console; shown last, after the groups. */
+const DEVELOPER: NavItem = { to: '/developer', label: 'API & CLI', icon: Terminal }
 
 interface NavGroupDef {
   /** Also the key its open/closed state is remembered under. */
@@ -285,6 +288,12 @@ export function Layout() {
             ))}
             <NavGroup group={CONFIGURATION} collapsed={collapsed} />
             {can('admin') && <NavGroup group={ADMIN} collapsed={collapsed} />}
+            <Tip label={DEVELOPER.label} show={collapsed}>
+              <Link to={DEVELOPER.to} className={itemClass(active(DEVELOPER.to), collapsed)} aria-label={DEVELOPER.label} aria-current={active(DEVELOPER.to) ? 'page' : undefined}>
+                <DEVELOPER.icon size={15} className="shrink-0" />
+                {!collapsed && <span className="truncate">{DEVELOPER.label}</span>}
+              </Link>
+            </Tip>
           </nav>
           <Tip label="Keyboard shortcuts (?)" show={collapsed}>
             <button

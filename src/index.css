@@ -126,6 +126,11 @@ body { @apply bg-bg text-fg text-[13px] antialiased; font-feature-settings: 'tnu
 .table tbody tr:focus-visible { @apply bg-selected; }
 }
 
+/* Swagger UI (the API reference) has only a light theme: give it a light panel of its own in both console themes. */
+.api-docs { background: #ffffff; color-scheme: light; }
+.api-docs .swagger-ui .information-container { padding: 0 20px; }
+.api-docs .swagger-ui .scheme-container { box-shadow: none; padding: 12px 0; }
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { @apply rounded-full bg-border-strong; }
 ::-webkit-scrollbar-track { @apply bg-transparent; }

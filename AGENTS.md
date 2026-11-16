@@ -84,3 +84,6 @@ with its own theme.
   overview's cards ("Customize cards" in `features/overview/Overview.tsx`) are per person, stored through
   `lib/useUserSetting.ts`. A view is the fleet filters as a query string (`lib/views.ts`: encode/decode, `countQuery`,
   `resolveCards`); a card is a fleet count from `METRICS` or the size of a saved view. Add a new count to `METRICS`.
+- API and CLI page (`features/developer`, `/developer`, everyone): the opampctl guide with downloads, and the API
+  reference in Swagger UI (`swagger-ui-react`, lazy-loaded as its own chunk; light-only, so it sits on a white
+  `.api-docs` panel in both themes). "Try it out" uses the console session through `requestInterceptor`.

@@ -794,6 +794,11 @@ export const api = {
   /** One of the signed-in person's own console settings (a list); null when never saved. */
   userSetting: <T>(key: 'fleet_views' | 'overview_cards') => request<{ value: T[] | null }>(`/auth/me/settings/${key}`),
   saveUserSetting: <T>(key: 'fleet_views' | 'overview_cards', value: T[]) => request<void>(`/auth/me/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
+  /** The API reference as an OpenAPI 3 document. */
+  openapi: () => request<object>('/openapi.json'),
+  /** The opampctl tool this deployment ships: its usage text and the builds that can be downloaded. */
+  cli: () => request<{ version: string; usage: string; builds: { platform: string; file: string; size: number; sha256: string }[] }>('/downloads/opampctl'),
+  downloadCli: (platform: string) => download(`/downloads/opampctl/${platform}`, platform.startsWith('windows') ? 'opampctl.exe' : 'opampctl'),
   reports: () => request<{ reports: ComplianceReport[] }>('/reports'),
   /** Makes a compliance report now, covering the last `days` days. */
   createReport: (name: string, days: number) => request<ComplianceReport>('/reports', { method: 'POST', body: JSON.stringify({ name, days }) }),

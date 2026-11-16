@@ -14,6 +14,7 @@ import { NewConfig } from './features/config-editor/NewConfig'
 import { PipelineBuilder } from './features/config-builder/PipelineBuilder'
 import { Credentials } from './features/credentials/Credentials'
 import { Compliance } from './features/compliance/Compliance'
+import { Developer } from './features/developer/Developer'
 import { InstallCollector } from './features/install/InstallCollector'
 import { System } from './features/system/System'
 import { Groups } from './features/targeting/Groups'
@@ -39,6 +40,7 @@ function Shell() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/overview" element={<Overview />} />
+        <Route path="/developer" element={<Developer />} />
         <Route path="/topology" element={<Topology />} />
         <Route path="/agents" element={<FleetDashboard />} />
         <Route path="/agents/compare" element={<CompareAgents />} />

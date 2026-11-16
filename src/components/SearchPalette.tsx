@@ -28,6 +28,7 @@ const PAGES: { to: string; title: string; admin?: boolean }[] = [
   { to: '/projects', title: 'Projects', admin: true },
   { to: '/users', title: 'Users', admin: true },
   { to: '/credentials', title: 'Agent credentials', admin: true },
+  { to: '/developer', title: 'API and CLI (opampctl, API reference)' },
   { to: '/audit', title: 'Audit log', admin: true },
   { to: '/audit?tab=reports', title: 'Compliance reports', admin: true },
   { to: '/system', title: 'System', admin: true },
