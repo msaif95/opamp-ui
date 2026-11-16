@@ -13,11 +13,17 @@ const platforms = [
   { value: 'darwin_amd64', label: 'macOS (Intel)' },
 ]
 
+const transports = [
+  { value: 'websocket', label: 'WebSocket', hint: 'Recommended: changes arrive at once' },
+  { value: 'http', label: 'HTTP polling', hint: 'For proxies that block WebSockets' },
+]
+
 /** Generates a one-off install script for the stock OpenTelemetry Collector and OpAMP Supervisor. */
 export function InstallCollector() {
   const qc = useQueryClient()
   // Start on the platform of the machine the console is open on; servers are usually Linux, so that is the fallback.
   const [platform, setPlatform] = useState(() => (/Mac/i.test(navigator.userAgent) ? 'darwin_arm64' : 'linux_amd64'))
+  const [transport, setTransport] = useState<'websocket' | 'http'>('websocket')
   const [version, setVersion] = useState('0.164.0')
   const [keyName, setKeyName] = useState('')
   const [expiresDays, setExpiresDays] = useState('0')
@@ -28,7 +34,7 @@ export function InstallCollector() {
   const [project, setProject] = useState<string | null | undefined>(undefined)
 
   const generate = useMutation({
-    mutationFn: () => api.installCommand({ platform, version: version.trim(), labels, key_name: keyName.trim(), expires_days: Number(expiresDays), project_id: project ?? null }),
+    mutationFn: () => api.installCommand({ platform, version: version.trim(), labels, key_name: keyName.trim(), expires_days: Number(expiresDays), project_id: project ?? null, transport }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
   })
 
@@ -62,6 +68,10 @@ export function InstallCollector() {
           <label className="space-y-1">
             <span className="block text-xs text-muted">Platform</span>
             <Select className="w-52" value={platform} onChange={setPlatform} options={platforms} />
+          </label>
+          <label className="space-y-1">
+            <span className="block text-xs text-muted">Connection</span>
+            <Select className="w-52" value={transport} onChange={(v) => setTransport(v as 'websocket' | 'http')} options={transports} aria-label="Connection" />
           </label>
           <label className="space-y-1">
             <span className="block text-xs text-muted">Collector version</span>

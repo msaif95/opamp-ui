@@ -64,6 +64,8 @@ export interface Agent {
   project_id: string | null
   instance_uid: string
   connector_type: 'supervisor' | 'extension' | 'k8s_bridge'
+  /** How it talks OpAMP: a WebSocket it keeps open, or plain HTTP polling (changes reach it on its next poll). */
+  transport: 'websocket' | 'http'
   auth_mode: 'mtls' | 'api_key'
   attributes: Record<string, string>
   /** Labels people put on the collector in the console. Each is also among `attributes` as `label.<key>`. */
@@ -908,7 +910,7 @@ export const api = {
     request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days, project_id, ...limits }) }),
   setApiTokenLimits: (id: string, limits: TokenLimits) => request<ApiToken>(`/auth/tokens/${id}/limits`, { method: 'PUT', body: JSON.stringify(limits) }),
   revokeApiToken: (id: string) => request<void>(`/auth/tokens/${id}`, { method: 'DELETE' }),
-  installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number; project_id: string | null }) =>
+  installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number; project_id: string | null; transport: 'websocket' | 'http' }) =>
     request<{ script: string; api_key_id: string }>('/agents/install-command', { method: 'POST', body: JSON.stringify(req) }),
   revokedCerts: () => request<{ revoked_certs: RevokedCert[] }>('/credentials/revoked-certs'),
   revokeCert: (name: string, certificatePem: string) =>

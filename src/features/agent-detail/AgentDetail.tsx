@@ -123,6 +123,19 @@ export function AgentDetail() {
                     <span className="font-mono text-xs">{a.instance_uid}</span>
                   </Row>
                   <Row label="Connector type">{a.connector_type}</Row>
+                  <Row label="Connection">
+                    {a.transport === 'http' ? (
+                      <>
+                        HTTP polling
+                        <div className="text-xs text-muted">
+                          This collector asks for changes instead of holding a connection open, so a config or a restart reaches it on its next poll rather
+                          than at once.
+                        </div>
+                      </>
+                    ) : (
+                      'WebSocket'
+                    )}
+                  </Row>
                   <Row label="Auth mode">{a.auth_mode === 'mtls' ? 'mTLS' : 'API key'}</Row>
                   <Row label="Version">{a.agent_version ?? '–'}</Row>
                   <Row label="Health">

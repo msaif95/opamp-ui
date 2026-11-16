@@ -525,7 +525,10 @@ export function FleetDashboard() {
                       }}
                     />
                   </td>
-                  <td>{a.connector_type === 'k8s_bridge' ? 'Kubernetes bridge' : a.connector_type}</td>
+                  <td>
+                    {a.connector_type === 'k8s_bridge' ? 'Kubernetes bridge' : a.connector_type}
+                    {a.transport === 'http' && <span className="ml-1 text-xs text-muted">(HTTP polling)</span>}
+                  </td>
                   <td>{a.auth_mode === 'mtls' ? 'mTLS' : 'API key'}</td>
                   <td>
                     <ConfigStatus status={a.remote_config_status} />

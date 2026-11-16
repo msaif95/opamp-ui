@@ -32,7 +32,7 @@ export function AgentActions({ agent }: { agent: Agent }) {
   return (
     <div className="flex items-center gap-2">
       {error && <span className="text-xs text-danger">{error.message}</span>}
-      {sent && <span className="text-xs text-success">Restart requested</span>}
+      {sent && <span className="text-xs text-success">{agent.transport === 'http' ? 'Restart requested: it is sent on the next poll' : 'Restart requested'}</span>}
       {agent.paused ? (
         <button className="btn btn-primary" disabled={pause.isPending} onClick={() => pause.mutate(false)}>
           <Play size={13} /> Resume collection
