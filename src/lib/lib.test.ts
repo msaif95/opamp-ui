@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { groupFailures } from './bulk'
 import { diffLines, sideBySide } from './diff'
+import { readKeys, readLabels } from './labels'
 import { parseSteps } from './steps'
 import { timeAgo } from './time'
 
@@ -65,6 +66,30 @@ describe('groupFailures', () => {
       { reason: 'not connected', names: ['host-b'] },
       { reason: 'failed', names: ['host-e'] },
     ])
+  })
+})
+
+describe('readLabels', () => {
+  it('trims, skips empty rows and returns the labels', () => {
+    expect(readLabels([{ key: ' owner ', value: ' alice ' }, { key: '', value: '' }, { key: 'team/on-call', value: 'sre' }])).toEqual({
+      labels: { owner: 'alice', 'team/on-call': 'sre' },
+    })
+  })
+  it('explains what is wrong', () => {
+    for (const rows of [
+      [{ key: 'my key', value: 'x' }],
+      [{ key: 'owner', value: '' }],
+      [{ key: '', value: 'x' }],
+      [{ key: 'a', value: '1' }, { key: 'a', value: '2' }],
+      [{ key: 'a', value: 'v'.repeat(129) }],
+      Array.from({ length: 21 }, (_, i) => ({ key: `k${i}`, value: 'v' })),
+    ]) {
+      expect(readLabels(rows)).toHaveProperty('error')
+    }
+  })
+  it('splits names to remove', () => {
+    expect(readKeys(' owner, canary  owner ')).toEqual(['owner', 'canary'])
+    expect(readKeys('')).toEqual([])
   })
 })
 

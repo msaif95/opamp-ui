@@ -66,3 +66,6 @@ with its own theme.
   Removing is a soft delete: the fleet's "Removed" view (`?view=removed`, beside All / Connected / Offline) lists the
   records (`fleet-dashboard/Removed.tsx`), and a row opens `/agents/removed/:id` with who removed it, when, its
   attributes, history and last config. Event wording shared with the Activity tab is in `agent-detail/eventKinds.ts`.
+- Labels: `components/Labels.tsx` (`LabelChips`, `LabelForm`), rules in `lib/labels.ts`. Edited on the collector page
+  (Labels card; the Attributes card hides `label.*`) and in bulk from the fleet selection bar. A label `owner` is the
+  attribute `label.owner` everywhere else (selector picker, filters); a chip in the fleet table filters by it.

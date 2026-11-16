@@ -1,15 +1,18 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ArrowDown, ArrowUp, Download, GitCompareArrows, Pause, Play, Plus, RefreshCw, RotateCw, Search, Server, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, GitCompareArrows, Pause, Play, Plus, RefreshCw, RotateCw, Search, Server, Tag, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { api, type Agent, type AgentQuery, type BulkAgentAction } from '../../api-client/client'
+import { api, type Agent, type AgentQuery, type BulkAgentAction, type LabelChange } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { Modal } from '../../components/Dialogs'
 import { EmptyState } from '../../components/EmptyState'
+import { LabelChips, LabelForm } from '../../components/Labels'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { AgentStatus, ConfigStatus, ErrorNote, PageHeader } from '../../components/ui'
 import { groupFailures } from '../../lib/bulk'
+import { LABEL_PREFIX } from '../../lib/labels'
 import { confirmDialog } from '../../lib/dialog'
 import { timeAgo } from '../../lib/time'
 import { toast } from '../../lib/toast'
@@ -35,11 +38,14 @@ type View = keyof typeof views
 
 /** The server takes this many collectors in one bulk action. */
 const BULK_LIMIT = 500
+/** What a finished bulk action is called, and how its success reads. */
+const bulkName = (action: BulkAgentAction) => (action === 'label' ? 'label' : BULK[action].action.toLowerCase())
+const bulkDone = (action: BulkAgentAction, n: number) => (action === 'label' ? `Labels changed on ${plural(n)}` : BULK[action].done(n))
 const hostOf = (a: Agent) => a.attributes['host.name'] ?? a.instance_uid
 const plural = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'collector' : 'collectors'}`
 
 /** Wording for each bulk action: the question asked first, and the summary shown afterwards. */
-const BULK: Record<BulkAgentAction, { title: (n: number) => string; body: string; action: string; danger?: boolean; done: (n: number) => string }> = {
+const BULK: Record<Exclude<BulkAgentAction, 'label'>, { title: (n: number) => string; body: string; action: string; danger?: boolean; done: (n: number) => string }> = {
   restart: {
     title: (n) => `Restart ${plural(n)}?`,
     body: 'Each stops collecting for a few seconds while it restarts. Collectors that are offline or do not accept restart commands are skipped.',
@@ -116,17 +122,19 @@ export function FleetDashboard() {
   // Ticked collectors (instance UID -> host name), kept across pages and filters: for bulk actions, or two to compare.
   const [picked, setPicked] = useState<Record<string, string>>({})
   const pickedIds = Object.keys(picked)
+  const [labelling, setLabelling] = useState(false)
   const bulk = useMutation({
-    mutationFn: ({ action, uids }: { action: BulkAgentAction; uids: string[] }) => api.bulkAgents(action, uids),
+    mutationFn: ({ action, uids, labels }: { action: BulkAgentAction; uids: string[]; labels?: LabelChange }) => api.bulkAgents(action, uids, labels),
     onSuccess: (out, { action }) => {
-      if (out.succeeded > 0) toast({ title: BULK[action].done(out.succeeded), body: out.failed > 0 ? `${plural(out.failed)} skipped; the reasons are listed above the table.` : undefined, tone: out.failed > 0 ? 'warning' : 'success' })
+      setLabelling(false)
+      if (out.succeeded > 0) toast({ title: bulkDone(action, out.succeeded), body: out.failed > 0 ? `${plural(out.failed)} skipped; the reasons are listed above the table.` : undefined, tone: out.failed > 0 ? 'warning' : 'success' })
       // Removed collectors leave the selection; the rest stay ticked for a follow-up action.
       if (action === 'delete') setPicked((now) => Object.fromEntries(Object.entries(now).filter(([uid]) => !out.results.some((r) => r.ok && r.instance_uid === uid))))
       void refresh()
     },
   })
   const skipped = bulk.data && bulk.data.failed > 0 ? groupFailures(bulk.data.results, (uid) => picked[uid] ?? uid) : []
-  const runBulk = (action: BulkAgentAction) => {
+  const runBulk = (action: Exclude<BulkAgentAction, 'label'>) => {
     const { title, body, action: label, danger } = BULK[action]
     void confirmDialog({ title: title(pickedIds.length), body, action: label, danger }).then((ok) => ok && bulk.mutate({ action, uids: pickedIds }))
   }
@@ -386,6 +394,9 @@ export function FleetDashboard() {
               <button className="btn btn-sm" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('resume')}>
                 <Play size={12} /> Resume collection
               </button>
+              <button className="btn btn-sm" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => setLabelling(true)}>
+                <Tag size={12} /> Label
+              </button>
               <button className="btn btn-sm text-danger" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('delete')}>
                 <Trash2 size={12} /> Remove
               </button>
@@ -402,12 +413,28 @@ export function FleetDashboard() {
           </button>
         </div>
       )}
-      {bulk.error && <ErrorNote error={bulk.error} />}
+      {bulk.error && !labelling && <ErrorNote error={bulk.error} />}
+      <Modal
+        open={labelling}
+        onClose={() => setLabelling(false)}
+        size="lg"
+        title={`Label ${plural(pickedIds.length)}`}
+        description={`Your own name=value tags. Labels not mentioned here are left as they are. In groups, bulk pushes and filters a label is picked as ${LABEL_PREFIX}name.`}
+      >
+        {labelling && (
+          <LabelForm
+            pending={bulk.isPending}
+            error={bulk.error}
+            onCancel={() => setLabelling(false)}
+            onSubmit={(labels) => bulk.mutate({ action: 'label', uids: pickedIds, labels })}
+          />
+        )}
+      </Modal>
       {skipped.length > 0 && (
         <div role="status" className="card border-warning p-3 text-xs">
           <div className="flex items-start justify-between gap-2">
             <p className="font-medium">
-              {bulk.data!.succeeded === 0 ? 'Nothing was changed' : `${plural(bulk.data!.failed)} skipped`}: {BULK[bulk.variables!.action].action.toLowerCase()}
+              {bulk.data!.succeeded === 0 ? 'Nothing was changed' : `${plural(bulk.data!.failed)} skipped`}: {bulkName(bulk.variables!.action)}
             </p>
             <button onClick={() => bulk.reset()} aria-label="Dismiss">
               <X size={12} />
@@ -454,6 +481,7 @@ export function FleetDashboard() {
                 <th>Version</th>
                 <th>Env</th>
                 <th>Region</th>
+                <th>Labels</th>
                 <th>Connector</th>
                 <th>Auth</th>
                 <th>Remote config</th>
@@ -487,6 +515,16 @@ export function FleetDashboard() {
                   <td>{a.agent_version ?? '–'}</td>
                   <td>{a.attributes['env'] ?? '–'}</td>
                   <td>{a.attributes['region'] ?? '–'}</td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <LabelChips
+                      labels={a.labels}
+                      max={3}
+                      onPick={(k, v) => {
+                        setAttrs({ ...attrs, [LABEL_PREFIX + k]: v })
+                        setPage(0)
+                      }}
+                    />
+                  </td>
                   <td>{a.connector_type === 'k8s_bridge' ? 'Kubernetes bridge' : a.connector_type}</td>
                   <td>{a.auth_mode === 'mtls' ? 'mTLS' : 'API key'}</td>
                   <td>
@@ -497,7 +535,7 @@ export function FleetDashboard() {
               ))}
               {agents.data?.agents.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center text-muted">
+                  <td colSpan={13} className="py-8 text-center text-muted">
                     No collectors match these filters.
                   </td>
                 </tr>

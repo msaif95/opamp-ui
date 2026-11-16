@@ -66,6 +66,8 @@ export interface Agent {
   connector_type: 'supervisor' | 'extension' | 'k8s_bridge'
   auth_mode: 'mtls' | 'api_key'
   attributes: Record<string, string>
+  /** Labels people put on the collector in the console. Each is also among `attributes` as `label.<key>`. */
+  labels: Record<string, string>
   capabilities: number
   agent_version: string | null
   healthy: boolean | null
@@ -524,7 +526,13 @@ export interface DeletedAgentDetail extends DeletedAgent {
   history: { at: string; kind: string; detail: AgentEvent['detail'] }[]
 }
 
-export type BulkAgentAction = 'restart' | 'pause' | 'resume' | 'delete'
+export type BulkAgentAction = 'restart' | 'pause' | 'resume' | 'delete' | 'label'
+
+/** A change to labels: keys to add or overwrite, and keys to take off. */
+export interface LabelChange {
+  set: Record<string, string>
+  remove: string[]
+}
 
 /** What a bulk action did to one collector; `error` says why it was refused. */
 export interface BulkAgentResult {
@@ -655,8 +663,10 @@ export const api = {
   deletedAgent: (id: string) => request<DeletedAgentDetail>(`/agents/deleted/${id}`),
   deletedAgents: () => request<{ agents: DeletedAgent[] }>('/agents/deleted'),
   /** Applies one action to up to 500 collectors; each is checked on its own and reported separately. */
-  bulkAgents: (action: BulkAgentAction, instance_uids: string[]) =>
-    request<{ results: BulkAgentResult[]; succeeded: number; failed: number }>('/agents/bulk', { method: 'POST', body: JSON.stringify({ action, instance_uids }) }),
+  bulkAgents: (action: BulkAgentAction, instance_uids: string[], labels?: LabelChange) =>
+    request<{ results: BulkAgentResult[]; succeeded: number; failed: number }>('/agents/bulk', { method: 'POST', body: JSON.stringify({ action, instance_uids, labels }) }),
+  /** Replaces the labels on one collector. */
+  setAgentLabels: (uid: string, labels: Record<string, string>) => request<void>(`/agents/${uid}/labels`, { method: 'PUT', body: JSON.stringify({ labels }) }),
   agentEvents: (uid: string, before = 0) => request<{ events: AgentEvent[] }>(`/agents/${uid}/events?limit=100${before ? `&before=${before}` : ''}`),
   agentAllMetrics: (uid: string) =>
     request<{ series: MetricSeries[]; samples: { at: string; values: Record<string, number> }[]; max_series: number }>(`/agents/${uid}/metrics/all`),

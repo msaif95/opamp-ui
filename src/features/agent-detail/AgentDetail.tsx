@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
-import { GitCompareArrows } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { GitCompareArrows, Tag } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, CAP_ACCEPTS_REMOTE_CONFIG } from '../../api-client/client'
+import { api, CAP_ACCEPTS_REMOTE_CONFIG, type Agent } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { Tabs } from '../../components/Tabs'
 import { AgentStatus, Badge, ConfigStatus, ErrorNote } from '../../components/ui'
@@ -15,6 +15,9 @@ import { AgentMetrics } from './AgentMetrics'
 import { AgentTraces } from './AgentTraces'
 import { PushConfig } from './PushConfig'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
+import { Modal } from '../../components/Dialogs'
+import { LabelChips, LabelForm } from '../../components/Labels'
+import { LABEL_PREFIX } from '../../lib/labels'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -22,6 +25,57 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <dt className="w-44 shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 break-all">{children}</dd>
     </div>
+  )
+}
+
+/** The labels people have put on this collector, with a dialog to change them. */
+function Labels({ agent, editable }: { agent: Agent; editable: boolean }) {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const save = useMutation({
+    mutationFn: (labels: Record<string, string>) => api.setAgentLabels(agent.instance_uid, labels),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['agents'] })
+      setEditing(false)
+    },
+  })
+  const none = Object.keys(agent.labels).length === 0
+  return (
+    <section className="card">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
+        <h2 className="font-medium">Labels</h2>
+        {editable && (
+          <button
+            className="btn btn-sm"
+            onClick={() => {
+              save.reset()
+              setEditing(true)
+            }}
+          >
+            <Tag size={12} /> {none ? 'Add labels' : 'Edit labels'}
+          </button>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        {none ? (
+          <p className="text-muted">
+            None. Labels are your own name=value tags, kept here rather than in the collector's config. Use them to group collectors: a label
+            <span className="font-mono text-xs"> owner=alice</span> can be picked as <span className="font-mono text-xs">{LABEL_PREFIX}owner</span> in groups, bulk
+            pushes and fleet filters.
+          </p>
+        ) : (
+          <>
+            <LabelChips labels={agent.labels} />
+            <p className="mt-2 text-xs text-muted">
+              In groups, bulk pushes and fleet filters a label is picked as <span className="font-mono">{LABEL_PREFIX}name</span>.
+            </p>
+          </>
+        )}
+      </div>
+      <Modal open={editing} onClose={() => setEditing(false)} size="lg" title="Labels" description="Your own name=value tags for this collector. What the collector reports about itself is not changed.">
+        {editing && <LabelForm initial={agent.labels} pending={save.isPending} error={save.error} onCancel={() => setEditing(false)} onSubmit={(c) => save.mutate(c.set)} />}
+      </Modal>
+    </section>
   )
 }
 
@@ -86,6 +140,8 @@ export function AgentDetail() {
                 <h2 className="border-b border-border px-4 py-2 font-medium">Attributes</h2>
                 <dl>
                   {Object.entries(a.attributes)
+                    // Labels have their own card below; here is only what the collector reports.
+                    .filter(([k]) => !k.startsWith(LABEL_PREFIX))
                     .sort(([x], [y]) => x.localeCompare(y))
                     .map(([k, v]) => (
                       <Row key={k} label={k}>
@@ -95,6 +151,8 @@ export function AgentDetail() {
                 </dl>
               </section>
             </div>
+
+            <Labels agent={a} editable={canIn(a.project_id, 'operator')} />
 
             <section className="card">
               <h2 className="border-b border-border px-4 py-2 font-medium">Remote config</h2>
