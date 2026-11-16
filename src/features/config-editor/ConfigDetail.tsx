@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
+import { ArrowLeftRight } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type Issue } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { Select } from '../../components/Select'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
-import { DiffView, IssueList, OriginBadge, YamlEditor } from './parts'
+import { DiffView, IssueList, OriginBadge, SideBySideDiff, YamlEditor } from './parts'
 import { confirmDialog } from '../../lib/dialog'
 import { Breadcrumbs } from '../../components/Breadcrumbs'
 
@@ -20,6 +22,9 @@ export function ConfigDetail() {
   const [draft, setDraft] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [showDiff, setShowDiff] = useState(false)
+  // The version compared against; null follows the shown version (the one before it, or the saved text while editing).
+  const [base, setBase] = useState<number | null>(null)
+  const [layout, setLayout] = useState<'split' | 'unified'>('split')
   const [issues, setIssues] = useState<Issue[] | null>(null)
 
   const detail = useQuery({ queryKey: ['configs', id], queryFn: () => api.config(id) })
@@ -29,12 +34,6 @@ export function ConfigDetail() {
     queryKey: ['configs', id, 'version', versionNo],
     queryFn: () => api.configVersion(id, versionNo),
     enabled: versionNo > 0,
-    staleTime: Infinity,
-  })
-  const previous = useQuery({
-    queryKey: ['configs', id, 'version', versionNo - 1],
-    queryFn: () => api.configVersion(id, versionNo - 1),
-    enabled: showDiff && versionNo > 1,
     staleTime: Infinity,
   })
 
@@ -49,6 +48,24 @@ export function ConfigDetail() {
   const dirty = draft !== null && draft !== saved
   const mayEdit = config !== undefined && canIn(config.project_id, 'operator')
   const editable = config?.origin === 'ui' && mayEdit
+
+  const numbers = (detail.data?.versions ?? []).map((v) => v.version)
+  const older = numbers.filter((n) => n < versionNo)
+  const newer = numbers.filter((n) => n > versionNo)
+  const neighbour = older.length > 0 ? Math.max(...older) : newer.length > 0 ? Math.min(...newer) : 0
+  const baseNo = base !== null && numbers.includes(base) ? base : dirty ? versionNo : neighbour
+  const diffing = showDiff && baseNo > 0
+  const compared = useQuery({
+    queryKey: ['configs', id, 'version', baseNo],
+    queryFn: () => api.configVersion(id, baseNo),
+    enabled: diffing,
+    staleTime: Infinity,
+  })
+  const versionOptions = (detail.data?.versions ?? []).map((v) => ({
+    value: String(v.version),
+    label: `v${v.version}${v.version === config?.latest_version ? ' (latest)' : ''}`,
+    hint: `${v.author} · ${timeAgo(v.created_at)}${v.description ? ` · ${v.description}` : ''}`,
+  }))
 
   const validate = useMutation({ mutationFn: () => api.validateConfig(body), onSuccess: (r) => setIssues(r.issues) })
   const save = useMutation({
@@ -140,18 +157,69 @@ export function ConfigDetail() {
                 {dirty && <span className="ml-2 text-xs font-normal text-warning">edited, not saved</span>}
               </h2>
               <div className="seg">
-                <button className={showDiff ? '' : 'active'} onClick={() => setShowDiff(false)}>
+                <button className={diffing ? '' : 'active'} onClick={() => setShowDiff(false)}>
                   Content
                 </button>
-                <button className={showDiff ? 'active' : ''} disabled={versionNo <= 1 && !dirty} onClick={() => setShowDiff(true)}>
-                  {dirty ? 'Diff vs saved' : `Diff vs v${versionNo - 1}`}
+                <button
+                  className={diffing ? 'active' : ''}
+                  disabled={numbers.length <= 1 && !dirty}
+                  title={numbers.length <= 1 && !dirty ? 'There is only one version' : undefined}
+                  onClick={() => setShowDiff(true)}
+                >
+                  Compare
                 </button>
               </div>
             </div>
+            {diffing && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-xs">
+                <span className="text-muted">Changes from</span>
+                <Select aria-label="Compare from version" className="w-36" value={String(baseNo)} onChange={(v) => setBase(Number(v))} options={versionOptions} />
+                {dirty ? (
+                  <span className="text-muted">to your unsaved edits of v{versionNo}</span>
+                ) : (
+                  <>
+                    <button
+                      className="btn btn-sm"
+                      aria-label="Swap the two versions"
+                      title="Swap the two versions"
+                      onClick={() => {
+                        setBase(versionNo)
+                        select(baseNo)
+                      }}
+                    >
+                      <ArrowLeftRight size={13} />
+                    </button>
+                    <span className="text-muted">to</span>
+                    <Select aria-label="Compare to version" className="w-36" value={String(versionNo)} onChange={(v) => select(Number(v))} options={versionOptions} />
+                  </>
+                )}
+                <div className="seg ml-auto">
+                  <button className={layout === 'split' ? 'active' : ''} onClick={() => setLayout('split')}>
+                    Side by side
+                  </button>
+                  <button className={layout === 'unified' ? 'active' : ''} onClick={() => setLayout('unified')}>
+                    Unified
+                  </button>
+                </div>
+              </div>
+            )}
             {version.error ? (
               <ErrorNote error={version.error} />
-            ) : showDiff ? (
-              <DiffView before={dirty ? saved : (previous.data?.body ?? '')} after={body} />
+            ) : diffing ? (
+              compared.error ? (
+                <ErrorNote error={compared.error} />
+              ) : !compared.data || !version.data ? (
+                <p className="p-4 text-muted">Loading…</p>
+              ) : layout === 'split' ? (
+                <SideBySideDiff
+                  before={compared.data.body ?? ''}
+                  after={body}
+                  beforeLabel={`v${baseNo}`}
+                  afterLabel={dirty ? `v${versionNo}, edited` : `v${versionNo}`}
+                />
+              ) : (
+                <DiffView before={compared.data.body ?? ''} after={body} />
+              )
             ) : (
               <YamlEditor value={body} onChange={setDraft} readOnly={!editable} project={config?.project_id ?? null} />
             )}

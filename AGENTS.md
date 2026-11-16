@@ -58,3 +58,5 @@ with its own theme.
 - Sidebar groups are `NavGroupDef`s rendered by `NavGroup` in `Layout.tsx`: `CONFIGURATION` (Config, Group, Bulk push; open by default) and `ADMIN`. Add a page to a group's `items`.
 - Projects are mandatory: pages that create or list project-owned things are wrapped in `NeedsProject` (App.tsx), which
   asks for a project first; `ProjectSelect` always shows and has no "No project" choice.
+- Config version compare (`ConfigDetail` "Compare"): any two versions via two `Select`s, side by side (`SideBySideDiff`,
+  rows from `sideBySide` in `lib/diff.ts`) or unified (`DiffView`). While a draft is unsaved the right side is the draft.

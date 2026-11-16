@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useId, useRef, useState } from 'react'
 import { api, type ConfigTemplate, type Issue } from '../../api-client/client'
 import { Badge } from '../../components/ui'
-import { diffLines } from '../../lib/diff'
+import { diffLines, sideBySide, type DiffSide } from '../../lib/diff'
 
 export function OriginBadge({ origin }: { origin: ConfigTemplate['origin'] }) {
   return origin === 'git' ? <Badge tone="info">Git</Badge> : <Badge tone="neutral">UI</Badge>
@@ -170,5 +170,57 @@ export function DiffView({ before, after }: { before: string; after: string }) {
         </div>
       ))}
     </pre>
+  )
+}
+
+function SideCells({ side, type, changed, divider }: { side: DiffSide | null; type: 'add' | 'del'; changed: boolean; divider?: boolean }) {
+  const tone = !changed ? '' : !side ? 'bg-hover' : type === 'add' ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
+  return (
+    <>
+      <td className={clsx('select-none px-2 text-right align-top', tone, !changed && 'text-muted', divider && 'border-l border-border')}>{side?.no}</td>
+      <td className={clsx('whitespace-pre-wrap break-all px-2 align-top', tone)}>
+        {side && changed && <span className="select-none">{type === 'add' ? '+ ' : '- '}</span>}
+        {side?.text}
+      </td>
+    </>
+  )
+}
+
+/** Two documents side by side: `before` on the left, `after` on the right, changed lines facing each other. */
+export function SideBySideDiff({ before, after, beforeLabel, afterLabel }: { before: string; after: string; beforeLabel: string; afterLabel: string }) {
+  const lines = diffLines(before, after)
+  const removed = lines.filter((l) => l.type === 'del').length
+  const added = lines.filter((l) => l.type === 'add').length
+  if (removed === 0 && added === 0) return <p className="p-4 text-muted">No differences.</p>
+  const heading = 'px-4 py-1.5 text-left font-sans font-medium text-muted'
+  return (
+    <div className="overflow-auto">
+      <table className="w-full min-w-[44rem] table-fixed border-collapse font-mono text-xs leading-5">
+        <colgroup>
+          <col className="w-12" />
+          <col />
+          <col className="w-12" />
+          <col />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-border">
+            <th scope="col" colSpan={2} className={heading}>
+              {beforeLabel} <span className="ml-2 font-normal text-danger">{removed.toLocaleString()} removed</span>
+            </th>
+            <th scope="col" colSpan={2} className={clsx(heading, 'border-l border-border')}>
+              {afterLabel} <span className="ml-2 font-normal text-success">{added.toLocaleString()} added</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sideBySide(lines).map((r, n) => (
+            <tr key={n}>
+              <SideCells side={r.left} type="del" changed={r.changed} />
+              <SideCells side={r.right} type="add" changed={r.changed} divider />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diffLines } from './diff'
+import { diffLines, sideBySide } from './diff'
 import { parseSteps } from './steps'
 import { timeAgo } from './time'
 
@@ -32,6 +32,21 @@ describe('diffLines', () => {
   it('handles pure additions and deletions', () => {
     expect(diffLines('a', 'a\nb').filter((l) => l.type === 'add')).toEqual([{ type: 'add', text: 'b' }])
     expect(diffLines('a\nb', 'a').filter((l) => l.type === 'del')).toEqual([{ type: 'del', text: 'b' }])
+  })
+})
+
+describe('sideBySide', () => {
+  it('pairs removed lines with added ones and numbers each side', () => {
+    expect(sideBySide(diffLines('a\nb\nc', 'a\nx\ny\nc'))).toEqual([
+      { left: { no: 1, text: 'a' }, right: { no: 1, text: 'a' }, changed: false },
+      { left: { no: 2, text: 'b' }, right: { no: 2, text: 'x' }, changed: true },
+      { left: null, right: { no: 3, text: 'y' }, changed: true },
+      { left: { no: 3, text: 'c' }, right: { no: 4, text: 'c' }, changed: false },
+    ])
+  })
+  it('leaves the other side blank for pure additions and deletions', () => {
+    expect(sideBySide(diffLines('a\nb', 'a'))[1]).toEqual({ left: { no: 2, text: 'b' }, right: null, changed: true })
+    expect(sideBySide(diffLines('a', 'a\nb'))[1]).toEqual({ left: null, right: { no: 2, text: 'b' }, changed: true })
   })
 })
 
