@@ -76,6 +76,7 @@ export function ConfigList() {
                 <tr key={c.id} className="cursor-pointer" onClick={() => navigate(`/configs/${c.id}`)}>
                   <td>
                     <div className="font-medium">{c.name}</div>
+                    {c.base && <div className="text-xs text-muted">Derived from {c.base.name}</div>}
                     {c.description && <div className="text-xs text-muted">{c.description}</div>}
                   </td>
                   {hasProjects && (

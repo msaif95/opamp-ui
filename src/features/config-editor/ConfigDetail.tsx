@@ -8,6 +8,8 @@ import { useAuth } from '../../auth/AuthProvider'
 import { Select } from '../../components/Select'
 import { ErrorNote } from '../../components/ui'
 import { timeAgo } from '../../lib/time'
+import { DerivedConfigs, OverridesEditor } from './Derived'
+import { useMerged } from './useMerged'
 import { EffectPreview } from './EffectPreview'
 import { DiffView, IssueList, OriginBadge, SideBySideDiff, YamlEditor } from './parts'
 import { confirmDialog } from '../../lib/dialog'
@@ -46,11 +48,17 @@ export function ConfigDetail() {
     setIssues(null)
   }
 
+  // A derived config is edited through its overrides; the config itself is then worked out from them and the base.
+  const derived = config?.base ?? null
   const saved = version.data?.body ?? ''
-  const body = draft ?? saved
-  const dirty = draft !== null && draft !== saved
+  const savedText = derived ? (version.data?.overrides ?? '') : saved
+  const text = draft ?? savedText
+  const dirty = draft !== null && draft !== savedText
+  const merged = useMerged(derived?.id, text, dirty)
+  const body = derived ? (dirty ? (merged.data?.body ?? saved) : saved) : text
   const mayEdit = config !== undefined && canIn(config.project_id, 'operator')
   const editable = config?.origin === 'ui' && mayEdit
+  const latestBuiltFrom = detail.data?.versions.find((v) => v.version === config?.latest_version)?.base_version
 
   const numbers = (detail.data?.versions ?? []).map((v) => v.version)
   const older = numbers.filter((n) => n < versionNo)
@@ -72,10 +80,19 @@ export function ConfigDetail() {
 
   const validate = useMutation({ mutationFn: () => api.validateConfig(body), onSuccess: (r) => setIssues(r.issues) })
   const save = useMutation({
-    mutationFn: () => api.addConfigVersion(id, body, description.trim()),
+    mutationFn: () => (derived ? api.addDerivedVersion(id, text, description.trim()) : api.addConfigVersion(id, body, description.trim())),
     onSuccess: async (v) => {
       await qc.invalidateQueries({ queryKey: ['configs'] })
       setDescription('')
+      select(v.version)
+    },
+    onError: (e) => setIssues(e instanceof ApiError ? e.issues : null),
+  })
+  // Rebuilds a derived config from its base's latest version, keeping its overrides.
+  const rebuild = useMutation({
+    mutationFn: () => api.addDerivedVersion(id, null, ''),
+    onSuccess: async (v) => {
+      await qc.invalidateQueries({ queryKey: ['configs'] })
       select(v.version)
     },
     onError: (e) => setIssues(e instanceof ApiError ? e.issues : null),
@@ -122,6 +139,31 @@ export function ConfigDetail() {
       {config.origin === 'git' && (
         <p className="card border-accent p-3 text-xs">This config is sourced from Git and is read-only here. Change it with a pull request.</p>
       )}
+      {derived && (
+        <div className="card flex flex-wrap items-center gap-x-3 gap-y-2 p-3 text-xs">
+          <p className="min-w-0 flex-1">
+            Derived from{' '}
+            <Link to={`/configs/${derived.id}`} className="font-medium text-accent hover:underline">
+              {derived.name}
+            </Link>
+            : this config is that one with the overrides below applied. Its latest version was built from v{latestBuiltFrom ?? '?'} of the base
+            {latestBuiltFrom !== derived.latest_version ? `; the base is now at v${derived.latest_version}.` : ', which is the base\'s latest.'}
+          </p>
+          {editable && latestBuiltFrom !== derived.latest_version && (
+            <button className="btn btn-sm" disabled={rebuild.isPending || dirty} title={dirty ? 'Save or discard your edits first' : undefined} onClick={() => rebuild.mutate()}>
+              {rebuild.isPending ? 'Updating…' : `Update from base v${derived.latest_version}`}
+            </button>
+          )}
+          {rebuild.error && (
+            <p className="w-full text-warning">
+              {rebuild.error instanceof ApiError && rebuild.error.status === 409
+                ? 'Nothing to update: the newer base gives exactly the config this already has.'
+                : rebuild.error.message}
+            </p>
+          )}
+        </div>
+      )}
+      {!derived && config.origin === 'ui' && <DerivedConfigs config={config} mayEdit={mayEdit} />}
 
       <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
         <section className="card self-start">
@@ -228,6 +270,16 @@ export function ConfigDetail() {
               ) : (
                 <DiffView before={compared.data.body ?? ''} after={body} />
               )
+            ) : derived ? (
+              <OverridesEditor
+                baseName={derived.name}
+                overrides={text}
+                onChange={setDraft}
+                readOnly={!editable}
+                project={config?.project_id ?? null}
+                merged={dirty ? merged : undefined}
+                result={body}
+              />
             ) : (
               <YamlEditor value={body} onChange={setDraft} readOnly={!editable} project={config?.project_id ?? null} />
             )}

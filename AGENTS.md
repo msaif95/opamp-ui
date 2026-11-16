@@ -77,3 +77,6 @@ with its own theme.
 - Audit and compliance is one admin page at `/audit` (`features/compliance/Compliance.tsx`) with tabs Audit log
   (`features/audit-log/AuditLog.tsx`, tab content only), Reports and Schedules; `/compliance` redirects to
   `/audit?tab=reports`. Reports are downloaded (HTML / CSV / JSON) through `api.downloadReport`, not rendered here.
+- Derived configs: `features/config-editor/Derived.tsx` (`OverridesEditor`, `DerivedConfigs`) and `useMerged.ts`
+  (live merge through `api.mergeConfig`). The config page edits a derived config's overrides and shows the result
+  under them; Compare, Preview effect and Validate work on the result. `/configs/new?base=<id>` starts a derived one.

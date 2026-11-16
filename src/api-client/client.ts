@@ -201,8 +201,33 @@ export interface ConfigTemplate {
   assigned_agents: number
   /** Agents assigned per version number. */
   assigned_by_version: Record<string, number>
+  /** Set for a derived config: the config whose text it takes, with overrides laid over it. */
+  base: { id: string; name: string; latest_version: number } | null
+  /** Configs derived from this one. Only present when a single config is fetched. */
+  derived?: DerivedConfig[]
   created_at: string
   updated_at: string
+}
+
+/** A config derived from another. */
+export interface DerivedConfig {
+  id: string
+  name: string
+  latest_version: number
+  /** The base version its latest version was built from. */
+  base_version: number
+  /** Rebuilding it from the base's latest version would change nothing. */
+  up_to_date: boolean
+}
+
+/** What bringing one derived config up to date did: a new version, nothing (already up to date), or why not. */
+export interface DerivedUpdate {
+  id: string
+  name: string
+  /** The new version, or 0 if none was made. */
+  version: number
+  error?: string
+  issues?: Issue[]
 }
 
 export interface ConfigVersion {
@@ -216,6 +241,9 @@ export interface ConfigVersion {
   git_commit_sha: string | null
   /** The pipeline as built in the config builder; absent for versions written as YAML. */
   builder_spec?: BuilderSpec
+  /** For a version of a derived config: the base version it was built from, and (with the body) its overrides. */
+  base_version: number | null
+  overrides?: string
   /** Only present in the version list of a config, and only when non-zero. */
   assigned_agents?: number
   created_at: string
@@ -808,6 +836,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ name, description, body, project_id }),
     }),
+  /** What a config derived from the base with these overrides would be, without saving it. */
+  mergeConfig: (base_id: string, overrides: string) =>
+    request<{ body: string; base_version: number; issues: Issue[] }>('/configs/merge', { method: 'POST', body: JSON.stringify({ base_id, overrides }) }),
+  createDerivedConfig: (name: string, description: string, base_id: string, overrides: string, project_id: string | null) =>
+    request<{ config: ConfigTemplate; version: ConfigVersion }>('/configs', { method: 'POST', body: JSON.stringify({ name, description, base_id, overrides, project_id }) }),
+  /** A new version of a derived config from its base's latest version; overrides null keeps the ones it has. */
+  addDerivedVersion: (id: string, overrides: string | null, description: string) =>
+    request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify(overrides === null ? { description } : { overrides, description }) }),
+  /** Brings every config derived from this base up to date with its latest version. */
+  updateDerivedConfigs: (id: string) => request<{ results: DerivedUpdate[] }>(`/configs/${id}/derived/update`, { method: 'POST' }),
   addConfigVersion: (id: string, body: string, description: string) =>
     request<ConfigVersion>(`/configs/${id}/versions`, { method: 'POST', body: JSON.stringify({ body, description }) }),
   library: () => request<{ items: LibraryItem[] }>('/configs/builder/library'),
