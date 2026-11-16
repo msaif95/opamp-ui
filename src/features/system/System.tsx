@@ -29,6 +29,12 @@ function copy(s: SystemStatus): Record<ProtectionKey, Copy> {
   ]
     .filter(Boolean)
     .join(', or ')
+  const budgets = [
+    s.api_rate_limit_per_minute > 0 && `${s.api_rate_limit_per_minute.toLocaleString()} requests`,
+    s.api_rate_limit_writes_per_minute > 0 && `${s.api_rate_limit_writes_per_minute.toLocaleString()} changes`,
+  ]
+    .filter(Boolean)
+    .join(' and ')
   return {
     sso: {
       name: 'Single sign-on (Okta)',
@@ -95,6 +101,13 @@ function copy(s: SystemStatus): Record<ProtectionKey, Copy> {
       name: 'Second approver for bulk pushes',
       on: 'Someone other than the person who started a bulk push must resume it or approve its next batch.',
       off: 'Switched off. The person who started a bulk push can also approve and resume it.',
+      unavailable: '',
+      important: true,
+    },
+    api_rate_limit: {
+      name: 'API rate limiting',
+      on: `${budgets ? `Each person and each API token may make ${budgets} a minute, across all their sessions` : 'No general limit is set in the deployment'}. A token can be given its own limit under Agent credentials → API tokens. Beyond its limit a caller is answered "too many requests" until the minute has passed.`,
+      off: 'Switched off, including the limits set on individual tokens. One runaway script or stolen token can load the API without limit.',
       unavailable: '',
       important: true,
     },

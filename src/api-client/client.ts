@@ -170,8 +170,17 @@ export interface ApiToken {
   expires_at: string | null
   revoked_at: string | null
   last_used_at: string | null
+  /** The token's own budgets per minute; null uses the deployment's default, 0 means no limit. */
+  rate_limit_per_minute: number | null
+  write_limit_per_minute: number | null
   /** Only present in the response to creating it. */
   secret?: string
+}
+
+/** A token's own rate limits per minute: all requests, and requests that change something. */
+export interface TokenLimits {
+  rate_limit_per_minute: number | null
+  write_limit_per_minute: number | null
 }
 
 export interface DesiredConfig {
@@ -312,6 +321,9 @@ export interface SystemStatus {
   alert_offline_pct: number
   alert_unhealthy_pct: number
   agent_offline_after_seconds: number
+  /** Console API budgets per user or API token per minute; 0 means that budget is not enforced. */
+  api_rate_limit_per_minute: number
+  api_rate_limit_writes_per_minute: number
 }
 
 export type ProtectionKey =
@@ -325,6 +337,7 @@ export type ProtectionKey =
   | 'rebalancing'
   | 'fleet_health_alerts'
   | 'second_approver'
+  | 'api_rate_limit'
 
 export interface Protection {
   key: ProtectionKey
@@ -740,8 +753,9 @@ export const api = {
   issueApiKey: (name: string, expiresAt: string | null, project_id: string | null) =>
     request<ApiKey>('/credentials/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt, project_id }) }),
   apiTokens: () => request<{ tokens: ApiToken[] }>('/auth/tokens'),
-  createApiToken: (name: string, role: Role, expires_days: number, project_id: string | null) =>
-    request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days, project_id }) }),
+  createApiToken: (name: string, role: Role, expires_days: number, project_id: string | null, limits: TokenLimits) =>
+    request<ApiToken>('/auth/tokens', { method: 'POST', body: JSON.stringify({ name, role, expires_days, project_id, ...limits }) }),
+  setApiTokenLimits: (id: string, limits: TokenLimits) => request<ApiToken>(`/auth/tokens/${id}/limits`, { method: 'PUT', body: JSON.stringify(limits) }),
   revokeApiToken: (id: string) => request<void>(`/auth/tokens/${id}`, { method: 'DELETE' }),
   installCommand: (req: { platform: string; version: string; labels: Record<string, string>; key_name: string; expires_days: number; project_id: string | null }) =>
     request<{ script: string; api_key_id: string }>('/agents/install-command', { method: 'POST', body: JSON.stringify(req) }),

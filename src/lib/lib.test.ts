@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { groupFailures } from './bulk'
 import { diffLines, sideBySide } from './diff'
 import { readKeys, readLabels } from './labels'
+import { limitText, readLimit } from './limits'
 import { parseSteps } from './steps'
 import { timeAgo } from './time'
 
@@ -90,6 +91,21 @@ describe('readLabels', () => {
   it('splits names to remove', () => {
     expect(readKeys(' owner, canary  owner ')).toEqual(['owner', 'canary'])
     expect(readKeys('')).toEqual([])
+  })
+})
+
+describe('rate limit fields', () => {
+  it('reads blank as the default, 0 as no limit, and rejects the rest', () => {
+    expect(readLimit('  ')).toBeNull()
+    expect(readLimit('0')).toBe(0)
+    expect(readLimit(' 300 ')).toBe(300)
+    for (const bad of ['-1', '1.5', 'abc', '100001']) expect(readLimit(bad), bad).toBeUndefined()
+  })
+  it('shows the token value or the default it inherits', () => {
+    expect(limitText(null, 1200)).toEqual({ text: '1,200', inherited: true })
+    expect(limitText(null, 0)).toEqual({ text: 'No limit', inherited: true })
+    expect(limitText(0, 1200)).toEqual({ text: 'No limit', inherited: false })
+    expect(limitText(300, 1200)).toEqual({ text: '300', inherited: false })
   })
 })
 

@@ -69,3 +69,5 @@ with its own theme.
 - Labels: `components/Labels.tsx` (`LabelChips`, `LabelForm`), rules in `lib/labels.ts`. Edited on the collector page
   (Labels card; the Attributes card hides `label.*`) and in bulk from the fleet selection bar. A label `owner` is the
   attribute `label.owner` everywhere else (selector picker, filters); a chip in the fleet table filters by it.
+- Token rate limits: API tokens tab (`features/credentials/ApiTokens.tsx`), in the create dialog and a per-row
+  "Rate limit" dialog; blank = deployment default (read from `/system`), 0 = no limit (`lib/limits.ts`).
