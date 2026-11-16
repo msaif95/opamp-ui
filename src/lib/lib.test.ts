@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { groupFailures } from './bulk'
 import { diffLines, sideBySide } from './diff'
 import { parseSteps } from './steps'
 import { timeAgo } from './time'
@@ -47,6 +48,23 @@ describe('sideBySide', () => {
   it('leaves the other side blank for pure additions and deletions', () => {
     expect(sideBySide(diffLines('a\nb', 'a'))[1]).toEqual({ left: { no: 2, text: 'b' }, right: null, changed: true })
     expect(sideBySide(diffLines('a', 'a\nb'))[1]).toEqual({ left: null, right: { no: 2, text: 'b' }, changed: true })
+  })
+})
+
+describe('groupFailures', () => {
+  it('groups refusals by reason, most common first, and skips successes', () => {
+    const results = [
+      { instance_uid: 'a', ok: true },
+      { instance_uid: 'b', ok: false, error: 'not connected' },
+      { instance_uid: 'c', ok: false, error: 'no config' },
+      { instance_uid: 'd', ok: false, error: 'no config' },
+      { instance_uid: 'e', ok: false },
+    ]
+    expect(groupFailures(results, (uid) => `host-${uid}`)).toEqual([
+      { reason: 'no config', names: ['host-c', 'host-d'] },
+      { reason: 'not connected', names: ['host-b'] },
+      { reason: 'failed', names: ['host-e'] },
+    ])
   })
 })
 

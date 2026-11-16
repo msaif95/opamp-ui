@@ -24,6 +24,7 @@ import { RolloutDetail } from './features/rollout-console/RolloutDetail'
 import { RolloutList } from './features/rollout-console/RolloutList'
 import { ThemeProvider } from './state/ThemeContext'
 import { FleetDashboard } from './features/fleet-dashboard/FleetDashboard'
+import { RemovedCollector } from './features/fleet-dashboard/Removed'
 import { CompareAgents } from './features/compare/CompareAgents'
 import { Overview } from './features/overview/Overview'
 import { Topology } from './features/topology/Topology'
@@ -42,6 +43,7 @@ function Shell() {
         <Route path="/agents" element={<FleetDashboard />} />
         <Route path="/agents/compare" element={<CompareAgents />} />
         {can('admin') && <Route path="/agents/install" element={<NeedsProject><InstallCollector /></NeedsProject>} />}
+        <Route path="/agents/removed/:id" element={<RemovedCollector />} />
         <Route path="/agents/:uid" element={<AgentDetail />} />
         <Route path="/configs" element={<NeedsProject><ConfigList /></NeedsProject>} />
         {can('operator') && <Route path="/configs/new" element={<NeedsProject><NewConfig /></NeedsProject>} />}

@@ -60,3 +60,9 @@ with its own theme.
   asks for a project first; `ProjectSelect` always shows and has no "No project" choice.
 - Config version compare (`ConfigDetail` "Compare"): any two versions via two `Select`s, side by side (`SideBySideDiff`,
   rows from `sideBySide` in `lib/diff.ts`) or unified (`DiffView`). While a draft is unsaved the right side is the draft.
+- Fleet multi-select: ticks are kept as uid -> host across pages (`picked` in `FleetDashboard`); the selection bar
+  runs restart / stop / resume / remove through `api.bulkAgents` (operators only) and offers Compare at exactly two.
+  Refusals come back per collector and are listed by reason (`groupFailures` in `lib/bulk.ts`); wording is in `BULK`.
+  Removing is a soft delete: the fleet's "Removed" view (`?view=removed`, beside All / Connected / Offline) lists the
+  records (`fleet-dashboard/Removed.tsx`), and a row opens `/agents/removed/:id` with who removed it, when, its
+  attributes, history and last config. Event wording shared with the Activity tab is in `agent-detail/eventKinds.ts`.

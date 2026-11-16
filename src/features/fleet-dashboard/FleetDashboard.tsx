@@ -1,16 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ArrowDown, ArrowUp, Download, GitCompareArrows, Plus, RefreshCw, Search, Server, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, GitCompareArrows, Pause, Play, Plus, RefreshCw, RotateCw, Search, Server, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { api, type AgentQuery } from '../../api-client/client'
+import { api, type Agent, type AgentQuery, type BulkAgentAction } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { EmptyState } from '../../components/EmptyState'
 import { ProjectName, useHasProjects } from '../../components/ProjectSelect'
 import { AgentStatus, ConfigStatus, ErrorNote, PageHeader } from '../../components/ui'
+import { groupFailures } from '../../lib/bulk'
+import { confirmDialog } from '../../lib/dialog'
 import { timeAgo } from '../../lib/time'
+import { toast } from '../../lib/toast'
 import { Select } from '../../components/Select'
+import { RemovedCollectors } from './Removed'
 
 const PAGE_SIZE = 50
 /** Safety-net refresh for "last seen"; real changes arrive through the event stream. */
@@ -24,8 +28,45 @@ const views = {
   healthy: { label: 'Healthy', filter: { connected: true, healthy: true } },
   unhealthy: { label: 'Unhealthy', filter: { connected: true, healthy: false } },
   config_failed: { label: 'Config failed', filter: { configStatus: 'failed' } },
+  // Not a filter on the fleet: the records of collectors removed from it (see RemovedCollectors).
+  removed: { label: 'Removed', filter: {} },
 } satisfies Record<string, { label: string; filter: Partial<AgentQuery> }>
 type View = keyof typeof views
+
+/** The server takes this many collectors in one bulk action. */
+const BULK_LIMIT = 500
+const hostOf = (a: Agent) => a.attributes['host.name'] ?? a.instance_uid
+const plural = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'collector' : 'collectors'}`
+
+/** Wording for each bulk action: the question asked first, and the summary shown afterwards. */
+const BULK: Record<BulkAgentAction, { title: (n: number) => string; body: string; action: string; danger?: boolean; done: (n: number) => string }> = {
+  restart: {
+    title: (n) => `Restart ${plural(n)}?`,
+    body: 'Each stops collecting for a few seconds while it restarts. Collectors that are offline or do not accept restart commands are skipped.',
+    action: 'Restart',
+    done: (n) => `Restart requested for ${plural(n)}`,
+  },
+  pause: {
+    title: (n) => `Stop collection on ${plural(n)}?`,
+    body: 'They stay connected but collect and send nothing until resumed. Collectors without an assigned config are skipped.',
+    action: 'Stop collection',
+    danger: true,
+    done: (n) => `Collection stopped on ${plural(n)}`,
+  },
+  resume: {
+    title: (n) => `Resume collection on ${plural(n)}?`,
+    body: 'Each goes back to its assigned config.',
+    action: 'Resume collection',
+    done: (n) => `Collection resumed on ${plural(n)}`,
+  },
+  delete: {
+    title: (n) => `Remove ${plural(n)} from the fleet?`,
+    body: 'They leave the fleet, and a record of each is kept with its history in the Removed view. Only offline collectors can be removed; one that connects again later is registered as new.',
+    action: 'Remove',
+    danger: true,
+    done: (n) => `Removed ${plural(n)}`,
+  },
+}
 
 function StatCard({ label, value, tone, active, onClick }: { label: string; value: number | undefined; tone?: string; active: boolean; onClick: () => void }) {
   return (
@@ -45,8 +86,9 @@ export function FleetDashboard() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { can } = useAuth()
+  const operator = can('operator')
   // Other pages link here with filters already applied: ?view=unhealthy, ?attr=region=eu, ?q=…, ?group=…, ?project=….
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [page, setPage] = useState(0)
   const [view, setView] = useState<View>(() => (params.get('view') && params.get('view')! in views ? (params.get('view') as View) : 'all'))
   const [sort, setSort] = useState<AgentQuery['sort']>('name')
@@ -71,8 +113,23 @@ export function FleetDashboard() {
     }, 250)
     return () => clearTimeout(timer)
   }, [searchText])
-  // Up to two collectors ticked for comparison.
-  const [picked, setPicked] = useState<string[]>([])
+  // Ticked collectors (instance UID -> host name), kept across pages and filters: for bulk actions, or two to compare.
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const pickedIds = Object.keys(picked)
+  const bulk = useMutation({
+    mutationFn: ({ action, uids }: { action: BulkAgentAction; uids: string[] }) => api.bulkAgents(action, uids),
+    onSuccess: (out, { action }) => {
+      if (out.succeeded > 0) toast({ title: BULK[action].done(out.succeeded), body: out.failed > 0 ? `${plural(out.failed)} skipped; the reasons are listed above the table.` : undefined, tone: out.failed > 0 ? 'warning' : 'success' })
+      // Removed collectors leave the selection; the rest stay ticked for a follow-up action.
+      if (action === 'delete') setPicked((now) => Object.fromEntries(Object.entries(now).filter(([uid]) => !out.results.some((r) => r.ok && r.instance_uid === uid))))
+      void refresh()
+    },
+  })
+  const skipped = bulk.data && bulk.data.failed > 0 ? groupFailures(bulk.data.results, (uid) => picked[uid] ?? uid) : []
+  const runBulk = (action: BulkAgentAction) => {
+    const { title, body, action: label, danger } = BULK[action]
+    void confirmDialog({ title: title(pickedIds.length), body, action: label, danger }).then((ok) => ok && bulk.mutate({ action, uids: pickedIds }))
+  }
   const exporting = useMutation({ mutationFn: (format: 'csv' | 'json') => api.exportAgents(query, format) })
   const { user } = useAuth()
   const hasProjects = useHasProjects()
@@ -89,11 +146,22 @@ export function FleetDashboard() {
     queryFn: () => api.agents(query),
     placeholderData: keepPreviousData,
     refetchInterval: BACKGROUND_REFRESH_MS,
+    enabled: view !== 'removed',
   })
 
   const show = (v: View) => {
     setView(v)
     setPage(0)
+    // Keep the address in step, so a reload or a shared link opens the same view.
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous)
+        if (v === 'all') next.delete('view')
+        else next.set('view', v)
+        return next
+      },
+      { replace: true },
+    )
   }
   const sortBy = (column: AgentQuery['sort']) => {
     if (column === sort) {
@@ -122,6 +190,9 @@ export function FleetDashboard() {
   const total = agents.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const s = summary.data
+  const onPage = agents.data?.agents ?? []
+  const allOnPage = onPage.length > 0 && onPage.every((a) => a.instance_uid in picked)
+  const tooMany = pickedIds.length > BULK_LIMIT ? `Select at most ${BULK_LIMIT} collectors for one action` : undefined
 
   const sortHeader = (column: AgentQuery['sort'], label: string) => (
     <th aria-sort={sort === column ? (order === 'asc' ? 'ascending' : 'descending') : 'none'}>
@@ -138,11 +209,6 @@ export function FleetDashboard() {
         title="Fleet"
         action={
           <>
-            {picked.length === 2 && (
-              <Link to={`/agents/compare?a=${picked[0]}&b=${picked[1]}`} className="btn">
-                <GitCompareArrows size={14} /> Compare selected
-              </Link>
-            )}
             <DropdownMenu.Root>
               <DropdownMenu.Trigger className="btn" disabled={exporting.isPending}>
                 <Download size={14} /> {exporting.isPending ? 'Exporting…' : 'Export'}
@@ -199,13 +265,13 @@ export function FleetDashboard() {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="seg">
-          {(['all', 'connected', 'offline'] as const).map((v) => (
+          {(['all', 'connected', 'offline', 'removed'] as const).map((v) => (
             <button key={v} className={view === v ? 'active' : ''} onClick={() => show(v)}>
               {views[v].label}
             </button>
           ))}
         </div>
-        {view !== 'all' && view !== 'connected' && view !== 'offline' && (
+        {view !== 'all' && view !== 'connected' && view !== 'offline' && view !== 'removed' && (
           <span className="chip border-accent text-accent">
             {views[view].label}
             <button onClick={() => show('all')} aria-label="Clear status filter">
@@ -231,7 +297,7 @@ export function FleetDashboard() {
             ]}
           />
         )}
-        {(groups.data?.groups.length ?? 0) > 0 && (
+        {view !== 'removed' && (groups.data?.groups.length ?? 0) > 0 && (
           <Select
             className="w-48"
             value={groupId}
@@ -262,15 +328,17 @@ export function FleetDashboard() {
             aria-label="Search collectors"
           />
         </div>
-        <form onSubmit={addFilter}>
-          <input
-            className={`input w-56 ${filterError ? 'border-danger' : ''}`}
-            placeholder="Filter: key=value (e.g. env=prod)"
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-          />
-        </form>
-        {Object.entries(attrs).map(([k, v]) => (
+        {view !== 'removed' && (
+          <form onSubmit={addFilter}>
+            <input
+              className={`input w-56 ${filterError ? 'border-danger' : ''}`}
+              placeholder="Filter: key=value (e.g. env=prod)"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+            />
+          </form>
+        )}
+        {view !== 'removed' && Object.entries(attrs).map(([k, v]) => (
           <span key={k} className="chip">
             {k}={v}
             <button onClick={() => removeFilter(k)} aria-label={`Remove filter ${k}`}>
@@ -280,7 +348,9 @@ export function FleetDashboard() {
         ))}
       </div>
 
-      {s?.total === 0 && !search && Object.keys(attrs).length === 0 && !groupId && !project ? (
+      {view === 'removed' ? (
+        <RemovedCollectors search={search} project={project} showProject={hasProjects} />
+      ) : s?.total === 0 && !search && Object.keys(attrs).length === 0 && !groupId && !project ? (
         <EmptyState
           icon={Server}
           title="No collectors yet"
@@ -299,6 +369,61 @@ export function FleetDashboard() {
           {!can('admin') && <p>Ask an administrator to add collectors to one of your projects.</p>}
         </EmptyState>
       ) : (
+      <>
+      {pickedIds.length > 0 && (
+        <div role="region" aria-label="Selected collectors" className="card flex flex-wrap items-center gap-2 border-accent px-3 py-2">
+          <span className="mr-1 text-xs font-medium" aria-live="polite">
+            {pickedIds.length.toLocaleString()} selected
+          </span>
+          {operator && (
+            <>
+              <button className="btn btn-sm" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('restart')}>
+                <RotateCw size={12} /> Restart
+              </button>
+              <button className="btn btn-sm" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('pause')}>
+                <Pause size={12} /> Stop collection
+              </button>
+              <button className="btn btn-sm" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('resume')}>
+                <Play size={12} /> Resume collection
+              </button>
+              <button className="btn btn-sm text-danger" disabled={bulk.isPending || !!tooMany} title={tooMany} onClick={() => runBulk('delete')}>
+                <Trash2 size={12} /> Remove
+              </button>
+            </>
+          )}
+          {pickedIds.length === 2 && (
+            <Link to={`/agents/compare?a=${pickedIds[0]}&b=${pickedIds[1]}`} className="btn btn-sm">
+              <GitCompareArrows size={12} /> Compare
+            </Link>
+          )}
+          {bulk.isPending && <span className="text-xs text-muted">Working…</span>}
+          <button className="btn btn-sm btn-ghost ml-auto" onClick={() => setPicked({})}>
+            <X size={12} /> Clear selection
+          </button>
+        </div>
+      )}
+      {bulk.error && <ErrorNote error={bulk.error} />}
+      {skipped.length > 0 && (
+        <div role="status" className="card border-warning p-3 text-xs">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-medium">
+              {bulk.data!.succeeded === 0 ? 'Nothing was changed' : `${plural(bulk.data!.failed)} skipped`}: {BULK[bulk.variables!.action].action.toLowerCase()}
+            </p>
+            <button onClick={() => bulk.reset()} aria-label="Dismiss">
+              <X size={12} />
+            </button>
+          </div>
+          <ul className="mt-1 space-y-1">
+            {skipped.map((g) => (
+              <li key={g.reason}>
+                <span className="text-muted">{g.reason}:</span>{' '}
+                <span className="font-mono">{g.names.slice(0, 10).join(', ')}</span>
+                {g.names.length > 10 && <span className="text-muted"> and {(g.names.length - 10).toLocaleString()} more</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="card overflow-auto">
         {agents.error ? (
           <ErrorNote error={agents.error} />
@@ -307,7 +432,20 @@ export function FleetDashboard() {
             <thead>
               <tr>
                 <th className="w-8">
-                  <span className="sr-only">Select to compare</span>
+                  <input
+                    type="checkbox"
+                    className="accent-[var(--c-accent)]"
+                    checked={allOnPage}
+                    disabled={onPage.length === 0}
+                    onChange={(e) =>
+                      setPicked(
+                        e.target.checked
+                          ? { ...picked, ...Object.fromEntries(onPage.map((a) => [a.instance_uid, hostOf(a)])) }
+                          : Object.fromEntries(Object.entries(picked).filter(([uid]) => !onPage.some((a) => a.instance_uid === uid))),
+                      )
+                    }
+                    aria-label="Select every collector on this page"
+                  />
                 </th>
                 <th>Status</th>
                 {sortHeader('name', 'Host')}
@@ -329,10 +467,11 @@ export function FleetDashboard() {
                     <input
                       type="checkbox"
                       className="accent-[var(--c-accent)]"
-                      checked={picked.includes(a.instance_uid)}
-                      // A third tick replaces the older of the two.
-                      onChange={(e) => setPicked(e.target.checked ? [...picked, a.instance_uid].slice(-2) : picked.filter((id) => id !== a.instance_uid))}
-                      aria-label={`Select ${a.attributes['host.name'] ?? a.instance_uid} to compare`}
+                      checked={a.instance_uid in picked}
+                      onChange={(e) =>
+                        setPicked(e.target.checked ? { ...picked, [a.instance_uid]: hostOf(a) } : Object.fromEntries(Object.entries(picked).filter(([uid]) => uid !== a.instance_uid)))
+                      }
+                      aria-label={`Select ${hostOf(a)}`}
                     />
                   </td>
                   <td>
@@ -367,9 +506,10 @@ export function FleetDashboard() {
           </table>
         )}
       </div>
+      </>
       )}
 
-      <div className="flex items-center justify-between text-xs text-muted">
+      <div className={clsx('flex items-center justify-between text-xs text-muted', view === 'removed' && 'hidden')}>
         <span>{total.toLocaleString()} agents</span>
         <div className="flex items-center gap-2">
           <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}>

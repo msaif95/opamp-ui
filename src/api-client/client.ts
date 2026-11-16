@@ -498,6 +498,42 @@ export interface AgentQuery {
   attrs: Record<string, string>
 }
 
+/** The record kept of a collector removed from the fleet. */
+export interface DeletedAgent {
+  id: number
+  instance_uid: string
+  project_id: string | null
+  host_name: string
+  connector_type: string
+  agent_version: string | null
+  attributes: Record<string, string>
+  first_seen: string
+  last_seen: string
+  /** How many history entries were kept with the record. */
+  events: number
+  deleted_at: string
+  deleted_by: string
+}
+
+/** A removed collector's record with everything kept of it. */
+export interface DeletedAgentDetail extends DeletedAgent {
+  auth_mode: string
+  /** The config it last reported running, if it reported one. */
+  effective_config: string | null
+  /** Its history when it was removed, oldest first. */
+  history: { at: string; kind: string; detail: AgentEvent['detail'] }[]
+}
+
+export type BulkAgentAction = 'restart' | 'pause' | 'resume' | 'delete'
+
+/** What a bulk action did to one collector; `error` says why it was refused. */
+export interface BulkAgentResult {
+  instance_uid: string
+  ok: boolean
+  status: number
+  error?: string
+}
+
 export class ApiError extends Error {
   status: number
   /** Validation issues, present on 422 responses. */
@@ -616,6 +652,11 @@ export const api = {
   agent: (uid: string) => request<Agent>(`/agents/${uid}`),
   pauseAgent: (uid: string, paused: boolean) => request<void>(`/agents/${uid}/${paused ? 'pause' : 'resume'}`, { method: 'POST' }),
   restartAgent: (uid: string) => request<void>(`/agents/${uid}/restart`, { method: 'POST' }),
+  deletedAgent: (id: string) => request<DeletedAgentDetail>(`/agents/deleted/${id}`),
+  deletedAgents: () => request<{ agents: DeletedAgent[] }>('/agents/deleted'),
+  /** Applies one action to up to 500 collectors; each is checked on its own and reported separately. */
+  bulkAgents: (action: BulkAgentAction, instance_uids: string[]) =>
+    request<{ results: BulkAgentResult[]; succeeded: number; failed: number }>('/agents/bulk', { method: 'POST', body: JSON.stringify({ action, instance_uids }) }),
   agentEvents: (uid: string, before = 0) => request<{ events: AgentEvent[] }>(`/agents/${uid}/events?limit=100${before ? `&before=${before}` : ''}`),
   agentAllMetrics: (uid: string) =>
     request<{ series: MetricSeries[]; samples: { at: string; values: Record<string, number> }[]; max_series: number }>(`/agents/${uid}/metrics/all`),
