@@ -80,3 +80,7 @@ with its own theme.
 - Derived configs: `features/config-editor/Derived.tsx` (`OverridesEditor`, `DerivedConfigs`) and `useMerged.ts`
   (live merge through `api.mergeConfig`). The config page edits a derived config's overrides and shows the result
   under them; Compare, Preview effect and Validate work on the result. `/configs/new?base=<id>` starts a derived one.
+- Dashboard customization: saved fleet views (`features/fleet-dashboard/SavedViews.tsx`, the "Views" menu) and the
+  overview's cards ("Customize cards" in `features/overview/Overview.tsx`) are per person, stored through
+  `lib/useUserSetting.ts`. A view is the fleet filters as a query string (`lib/views.ts`: encode/decode, `countQuery`,
+  `resolveCards`); a card is a fleet count from `METRICS` or the size of a saved view. Add a new count to `METRICS`.

@@ -18,6 +18,7 @@ import { timeAgo } from '../../lib/time'
 import { toast } from '../../lib/toast'
 import { Select } from '../../components/Select'
 import { RemovedCollectors } from './Removed'
+import { SavedViews } from './SavedViews'
 
 const PAGE_SIZE = 50
 /** Safety-net refresh for "last seen"; real changes arrive through the event stream. */
@@ -272,6 +273,18 @@ export function FleetDashboard() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <SavedViews
+          current={{ view, project, group: groupId, q: search, attrs }}
+          names={{ project: (id) => user?.projects.find((p) => p.id === id)?.name ?? id.slice(0, 8), group: (id) => groups.data?.groups.find((g) => g.id === id)?.name ?? id.slice(0, 8) }}
+          onApply={(f) => {
+            show(f.view in views ? (f.view as View) : 'all')
+            setProject(f.project)
+            setGroupId(f.group)
+            setSearchText(f.q)
+            setSearch(f.q)
+            setAttrs(f.attrs)
+          }}
+        />
         <div className="seg">
           {(['all', 'connected', 'offline', 'removed'] as const).map((v) => (
             <button key={v} className={view === v ? 'active' : ''} onClick={() => show(v)}>

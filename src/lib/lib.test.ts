@@ -5,6 +5,7 @@ import { readKeys, readLabels } from './labels'
 import { limitText, readLimit } from './limits'
 import { attributeChanges } from './preview'
 import { parseSteps } from './steps'
+import { countQuery, decodeFilters, DEFAULT_CARDS, describeFilters, encodeFilters, NO_FILTERS, resolveCards } from './views'
 import { timeAgo } from './time'
 
 describe('parseSteps', () => {
@@ -120,6 +121,45 @@ describe('attributeChanges', () => {
       { scope: 'resource', key: 'env', kind: 'changed', before: 'prod', after: 'live' },
       { scope: 'resource', key: 'team', kind: 'added', before: undefined, after: 'pay' },
       { scope: 'record', key: 'route', kind: 'same', before: '/a', after: '/a' },
+    ])
+  })
+})
+
+describe('fleet views', () => {
+  const filters = { view: 'unhealthy', project: 'p1', group: '', q: ' web ', attrs: { 'label.owner': 'ana', env: 'prod=eu' } }
+  it('round-trips filters through the address', () => {
+    const query = encodeFilters(filters)
+    expect(query).toBe('view=unhealthy&project=p1&q=web&attr=env%3Dprod%3Deu&attr=label.owner%3Dana')
+    expect(decodeFilters(query)).toEqual({ ...filters, q: 'web' })
+    expect(encodeFilters(NO_FILTERS)).toBe('')
+    expect(decodeFilters('')).toEqual(NO_FILTERS)
+  })
+  it('turns a view into the query that counts it', () => {
+    expect(countQuery(filters)).toMatchObject({ limit: 1, connected: true, healthy: false, project: 'p1', search: 'web', attrs: filters.attrs })
+    expect(countQuery(NO_FILTERS)).toMatchObject({ attrs: {}, project: undefined, groupId: undefined, search: undefined })
+  })
+  it('describes filters in words', () => {
+    expect(describeFilters(filters, { project: () => 'Payments' })).toBe('unhealthy · project Payments · "web" · env=prod=eu · label.owner=ana')
+    expect(describeFilters(NO_FILTERS)).toBe('every collector')
+  })
+  it('resolves overview cards, dropping what no longer exists', () => {
+    const views = [{ id: 'v1', name: 'Prod', query: 'attr=env%3Dprod' }]
+    expect(resolveCards(null, views)).toBe(DEFAULT_CARDS)
+    expect(resolveCards([], views)).toEqual([])
+    expect(
+      resolveCards(
+        [
+          { type: 'view', id: 'v1' },
+          { type: 'metric', metric: 'offline' },
+          { type: 'view', id: 'gone' },
+          { type: 'metric', metric: 'offline' },
+          { type: 'metric', metric: 'nope' as 'total' },
+        ],
+        views,
+      ),
+    ).toEqual([
+      { type: 'view', id: 'v1' },
+      { type: 'metric', metric: 'offline' },
     ])
   })
 })

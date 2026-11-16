@@ -1,19 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { FileCode, FolderKanban, Plus, Rocket, Server, Tags } from 'lucide-react'
+import { ArrowDown, ArrowUp, FileCode, FolderKanban, Plus, Rocket, Server, SlidersHorizontal, Tags, X } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 import { api, type Agent, type AgentQuery, type TrendPoint } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { Modal } from '../../components/Dialogs'
 import { EmptyState } from '../../components/EmptyState'
+import { Select } from '../../components/Select'
 import { AgentStatus, ErrorNote, PageHeader } from '../../components/ui'
 import { timeAgo, useNow } from '../../lib/time'
+import { useUserSetting } from '../../lib/useUserSetting'
+import { countQuery, decodeFilters, DEFAULT_CARDS, describeFilters, MAX_CARDS, METRICS, resolveCards, type MetricId, type OverviewCard, type SavedView } from '../../lib/views'
 import { ProgressBar, RolloutStatusBadge } from '../rollout-console/parts'
 
-type Metric = Exclude<keyof TrendPoint, 'at'>
+/** A trend point with the counts worked out from the others added. */
+type Point = TrendPoint & { offline: number }
+type Metric = MetricId
+const TONES = { accent: 'var(--c-accent)', success: 'var(--c-success)', danger: 'var(--c-danger)' }
 
 /** A headline number with its trend over the last 24 hours; the whole card links to the matching fleet view. */
-function Kpi({ label, value, metric, points, to, color, alarming }: { label: string; value: number | undefined; metric: Metric; points: TrendPoint[]; to: string; color: string; alarming?: boolean }) {
+function Kpi({ label, value, metric, points, to, color, alarming }: { label: string; value: number | undefined; metric: Metric; points: Point[]; to: string; color: string; alarming?: boolean }) {
   const first = points[0]?.[metric]
   const change = value !== undefined && first !== undefined ? value - first : 0
   return (
@@ -45,6 +53,87 @@ function Kpi({ label, value, metric, points, to, color, alarming }: { label: str
         )}
       </div>
     </Link>
+  )
+}
+
+/** A card counting the collectors in one of the person's saved fleet views; it links to that view. */
+function ViewCard({ view }: { view: SavedView }) {
+  const filters = decodeFilters(view.query)
+  const count = useQuery({ queryKey: ['agents', 'count', view.query], queryFn: () => api.agents(countQuery(filters)), refetchInterval: 30_000 })
+  return (
+    <Link to={`/agents?${view.query}`} className="card block px-4 pb-2 pt-3 transition-colors hover:border-accent">
+      <div className="truncate text-xs font-medium text-muted">{view.name}</div>
+      <div className="text-2xl font-semibold tracking-tight">{count.error ? '!' : (count.data?.total.toLocaleString() ?? '–')}</div>
+      <div className="mt-1 flex h-10 items-end text-[11px] text-faint">
+        <span className="line-clamp-2">{count.error ? 'Could not count this view' : `Saved view: ${describeFilters(filters)}`}</span>
+      </div>
+    </Link>
+  )
+}
+
+const cardKey = (c: OverviewCard) => (c.type === 'metric' ? `metric:${c.metric}` : `view:${c.id}`)
+
+/** Choose which cards the overview shows and in what order. Changes are saved as they are made. */
+function CustomizeCards({ cards, views, onChange, onClose }: { cards: OverviewCard[]; views: SavedView[]; onChange: (cards: OverviewCard[]) => void; onClose: () => void }) {
+  const used = new Set(cards.map(cardKey))
+  const options = [
+    ...(Object.keys(METRICS) as MetricId[]).filter((m) => !used.has(`metric:${m}`)).map((m) => ({ value: `metric:${m}`, label: METRICS[m].label, group: 'Fleet counts' })),
+    // The "removed" view lists records, not collectors in the fleet, so it has no count to show.
+    ...views
+      .filter((v) => !used.has(`view:${v.id}`) && decodeFilters(v.query).view !== 'removed')
+      .map((v) => ({ value: `view:${v.id}`, label: v.name, hint: describeFilters(decodeFilters(v.query)), group: 'Your saved fleet views' })),
+  ]
+  const name = (c: OverviewCard) => (c.type === 'metric' ? METRICS[c.metric].label : (views.find((v) => v.id === c.id)?.name ?? 'Saved view'))
+  const move = (i: number, by: number) => {
+    const next = [...cards]
+    ;[next[i], next[i + by]] = [next[i + by], next[i]]
+    onChange(next)
+  }
+  return (
+    <div className="mt-3 space-y-3">
+      <ul className="divide-y divide-border rounded-md border border-border">
+        {cards.map((c, i) => (
+          <li key={cardKey(c)} className="flex items-center gap-2 px-3 py-1.5">
+            <span className="w-5 text-xs text-muted">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate">{name(c)}</span>
+            {c.type === 'view' && <span className="text-xs text-muted">saved view</span>}
+            <button className="btn btn-ghost btn-sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${name(c)} earlier`}>
+              <ArrowUp size={13} />
+            </button>
+            <button className="btn btn-ghost btn-sm" disabled={i === cards.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${name(c)} later`}>
+              <ArrowDown size={13} />
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => onChange(cards.filter((_, n) => n !== i))} aria-label={`Remove ${name(c)}`}>
+              <X size={13} />
+            </button>
+          </li>
+        ))}
+        {cards.length === 0 && <li className="px-3 py-5 text-center text-muted">No cards. Add one below.</li>}
+      </ul>
+      <Select
+        className="w-full"
+        value=""
+        aria-label="Add a card"
+        placeholder={cards.length >= MAX_CARDS ? `At most ${MAX_CARDS} cards` : options.length === 0 ? 'Everything is already shown' : '+ Add a card…'}
+        disabled={cards.length >= MAX_CARDS || options.length === 0}
+        options={options}
+        onChange={(v) => {
+          const [type, id] = [v.slice(0, v.indexOf(':')), v.slice(v.indexOf(':') + 1)]
+          onChange([...cards, type === 'metric' ? { type: 'metric', metric: id as MetricId } : { type: 'view', id }])
+        }}
+      />
+      <p className="text-xs text-muted">
+        To count your own slice of the fleet, filter the Fleet page, save the filters as a view there, then add that view here.
+      </p>
+      <div className="flex justify-between gap-2">
+        <button className="btn" onClick={() => onChange(DEFAULT_CARDS)}>
+          Reset to the standard cards
+        </button>
+        <button className="btn btn-primary" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -99,7 +188,14 @@ export function Overview() {
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
 
   const s = summary.data
-  const points = trend.data?.points ?? []
+  const points: Point[] = (trend.data?.points ?? []).map((p) => ({ ...p, offline: p.total - p.connected }))
+  const counts: Record<MetricId, number> | undefined = s && { ...s, offline: s.total - s.connected }
+  // Which cards to show is each person's own choice; so are the saved fleet views a card can count.
+  const savedViews = useUserSetting<SavedView>('fleet_views')
+  const savedCards = useUserSetting<OverviewCard>('overview_cards')
+  const fleetViews = savedViews.value ?? []
+  const cards = resolveCards(savedCards.value, fleetViews)
+  const [customizing, setCustomizing] = useState(false)
   const waiting = (rollouts.data?.rollouts ?? []).filter((r) => r.status === 'paused')
   const recent = (rollouts.data?.rollouts ?? []).slice(0, 5)
   const dayAgo = useNow(60_000) - 86_400_000
@@ -147,15 +243,31 @@ export function Overview() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Overview" description="How the fleet is doing now and over the last 24 hours, what needs attention, and recent bulk pushes." />
+      <PageHeader
+        title="Overview"
+        description="How the fleet is doing now and over the last 24 hours, what needs attention, and recent bulk pushes."
+        action={
+          <button className="btn" onClick={() => setCustomizing(true)} disabled={!savedCards.loaded || !savedViews.loaded}>
+            <SlidersHorizontal size={14} /> Customize cards
+          </button>
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi label="Collectors" value={s?.total} metric="total" points={points} to="/agents" color="var(--c-accent)" />
-        <Kpi label="Connected" value={s?.connected} metric="connected" points={points} to="/agents?view=connected" color="var(--c-accent)" />
-        <Kpi label="Healthy" value={s?.healthy} metric="healthy" points={points} to="/agents?view=healthy" color="var(--c-success)" />
-        <Kpi label="Unhealthy" value={s?.unhealthy} metric="unhealthy" points={points} to="/agents?view=unhealthy" color="var(--c-danger)" alarming />
-        <Kpi label="Config failed" value={s?.config_failed} metric="config_failed" points={points} to="/agents?view=config_failed" color="var(--c-danger)" alarming />
-      </div>
+      {cards.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {cards.map((c) => {
+            if (c.type === 'view') {
+              const view = fleetViews.find((v) => v.id === c.id)
+              return view ? <ViewCard key={cardKey(c)} view={view} /> : null
+            }
+            const m = METRICS[c.metric]
+            return <Kpi key={cardKey(c)} label={m.label} value={counts?.[c.metric]} metric={c.metric} points={points} to={m.to} color={TONES[m.tone]} alarming={m.alarming} />
+          })}
+        </div>
+      )}
+      <Modal open={customizing} onClose={() => setCustomizing(false)} title="Cards on your overview" description="Only your own overview changes. Cards are saved as you go.">
+        {customizing && <CustomizeCards cards={cards} views={fleetViews} onChange={savedCards.save} onClose={() => setCustomizing(false)} />}
+      </Modal>
 
       {waiting.length > 0 && (
         <section className="card border-warning">

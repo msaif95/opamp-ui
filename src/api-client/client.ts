@@ -791,6 +791,9 @@ export const api = {
     p.set('format', format)
     return download(`/agents/export?${p}`, `collectors.${format}`)
   },
+  /** One of the signed-in person's own console settings (a list); null when never saved. */
+  userSetting: <T>(key: 'fleet_views' | 'overview_cards') => request<{ value: T[] | null }>(`/auth/me/settings/${key}`),
+  saveUserSetting: <T>(key: 'fleet_views' | 'overview_cards', value: T[]) => request<void>(`/auth/me/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
   reports: () => request<{ reports: ComplianceReport[] }>('/reports'),
   /** Makes a compliance report now, covering the last `days` days. */
   createReport: (name: string, days: number) => request<ComplianceReport>('/reports', { method: 'POST', body: JSON.stringify({ name, days }) }),
