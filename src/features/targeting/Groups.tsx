@@ -1,12 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Tags } from 'lucide-react'
+import { Plus, Tags, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Group, type Selector } from '../../api-client/client'
+import { api, type Group, type Role, type Selector } from '../../api-client/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { ProjectName, ProjectSelect, useHasProjects } from '../../components/ProjectSelect'
 import { SelectorPicker } from '../../components/SelectorPicker'
 import { Modal } from '../../components/Dialogs'
+import { Select } from '../../components/Select'
 import { ErrorNote, PageHeader } from '../../components/ui'
 import { SelectorChips } from '../rollout-console/parts'
 import { GroupConfigForm } from './GroupConfigForm'
@@ -88,12 +89,115 @@ function GroupForm({ group, onClose }: { group: Group | null; onClose: () => voi
   )
 }
 
+function GroupMembersForm({ group, onClose }: { group: Group; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [subject, setSubject] = useState('')
+  const [role, setRole] = useState<Role>('viewer')
+  const members = useQuery({ queryKey: ['group-members', group.id], queryFn: () => api.groupMembers(group.id) })
+  const users = useQuery({ queryKey: ['users'], queryFn: api.users })
+  const taken = new Set(members.data?.members.map((m) => m.subject) ?? [])
+  const userOptions = (users.data?.users ?? [])
+    .filter((u) => !taken.has(u.subject))
+    .map((u) => ({ value: u.subject, label: u.name || u.subject, hint: u.name ? u.subject : undefined }))
+  const add = useMutation({
+    mutationFn: () => api.setGroupMember(group.id, subject, role),
+    onSuccess: async () => {
+      setSubject('')
+      await qc.invalidateQueries({ queryKey: ['group-members', group.id] })
+    },
+  })
+  const remove = useMutation({
+    mutationFn: (s: string) => api.removeGroupMember(group.id, s),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['group-members', group.id] }),
+  })
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted">
+        Group members have direct access to this group without needing a project-wide role. Project-level roles still
+        apply to all groups in the project.
+      </p>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          add.mutate()
+        }}
+      >
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Person</span>
+          <Select className="w-72" value={subject} onChange={setSubject} options={userOptions} placeholder="Select a person…" aria-label="Person" />
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-muted">Role</span>
+          <Select
+            className="w-36"
+            value={role}
+            onChange={(v) => setRole(v as Role)}
+            options={[
+              { value: 'viewer', label: 'Viewer', hint: 'Can view the group and its agents' },
+              { value: 'operator', label: 'Operator', hint: 'Can manage the group and push configs' },
+            ]}
+            aria-label="Role"
+          />
+        </label>
+        <button className="btn btn-primary" disabled={!subject || add.isPending}>
+          Add
+        </button>
+      </form>
+      {add.error && <p className="text-xs text-danger">{add.error.message}</p>}
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Role</th>
+            <th>Added by</th>
+            <th>
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {members.data?.members.map((m) => (
+            <tr key={m.subject}>
+              <td>{m.subject}</td>
+              <td>
+                <span className="badge">{m.role}</span>
+              </td>
+              <td className="text-muted">{m.added_by}</td>
+              <td className="text-right">
+                <button className="btn btn-sm btn-danger" disabled={remove.isPending} onClick={() => remove.mutate(m.subject)}>
+                  Remove
+                </button>
+              </td>
+            </tr>
+          ))}
+          {members.data?.members.length === 0 && (
+            <tr>
+              <td colSpan={4} className="py-4 text-center text-muted">
+                No members yet.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {remove.error && <p className="text-xs text-danger">{remove.error.message}</p>}
+      <div className="flex justify-end">
+        <button className="btn" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function Groups() {
   const qc = useQueryClient()
-  const { can, canIn } = useAuth()
-  // The dialog that is open: the create/edit form, or a group's config form.
+  const { can, canIn, canInGroup } = useAuth()
+  // The dialog that is open: the create/edit form, a group's config form, or the members form.
   const [form, setForm] = useState<Group | 'new' | null>(null)
   const [assigning, setAssigning] = useState<Group | null>(null)
+  const [managing, setManaging] = useState<Group | null>(null)
   const hasProjects = useHasProjects()
 
   const groups = useQuery({ queryKey: ['groups'], queryFn: api.groups })
@@ -175,7 +279,7 @@ export function Groups() {
                     )}
                   </td>
                   <td className="space-x-2 text-right whitespace-nowrap">
-                    {canIn(g.project_id, 'operator') && (
+                    {canInGroup(g.id, g.project_id, 'operator') && (
                       <>
                         <button className="btn btn-sm" onClick={() => setAssigning(g)}>
                           {g.config ? 'Change config' : 'Set config'}
@@ -195,6 +299,11 @@ export function Groups() {
                           Delete
                         </button>
                       </>
+                    )}
+                    {canIn(g.project_id, 'operator') && (
+                      <button className="btn btn-sm" onClick={() => setManaging(g)}>
+                        <Users size={12} /> Members
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -239,6 +348,16 @@ export function Groups() {
         }
       >
         {assigning && <GroupConfigForm key={assigning.id} group={assigning} onDone={() => setAssigning(null)} />}
+      </Modal>
+
+      <Modal
+        open={managing !== null}
+        onClose={() => setManaging(null)}
+        size="lg"
+        title={managing ? `Members of "${managing.name}"` : ''}
+        description="Group members have direct access to this group without needing a project-wide role."
+      >
+        {managing && <GroupMembersForm key={managing.id} group={managing} onClose={() => setManaging(null)} />}
       </Modal>
     </div>
   )

@@ -11,6 +11,8 @@ export interface User {
   admin: boolean
   /** Projects this user can see, with their role in each. */
   projects: { id: string; name: string; role: Role }[]
+  /** Groups this user has a direct role on (additive to project-level roles). */
+  groups: { id: string; name: string; project_id: string | null; role: Role }[]
   /** The console signs the user out after this long without keyboard or pointer input. */
   session_idle_seconds: number
 }
@@ -898,6 +900,11 @@ export const api = {
     }),
   clearGroupConfig: (id: string) => request<void>(`/groups/${id}/config`, { method: 'DELETE' }),
   deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: 'DELETE' }),
+  groupMembers: (id: string) => request<{ members: ProjectMember[] }>(`/groups/${id}/members`),
+  setGroupMember: (id: string, subject: string, role: Role) =>
+    request<void>(`/groups/${id}/members`, { method: 'PUT', body: JSON.stringify({ subject, role }) }),
+  removeGroupMember: (id: string, subject: string) =>
+    request<void>(`/groups/${id}/members/${encodeURIComponent(subject)}`, { method: 'DELETE' }),
   audit: (q: string, before?: number) => {
     const p = new URLSearchParams({ limit: '100', q })
     if (before !== undefined) p.set('before', String(before))

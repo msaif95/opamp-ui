@@ -65,7 +65,7 @@ export function Select({
     <RadixSelect.Root value={known ? toRadix(value) : ''} onValueChange={(v) => onChange(fromRadix(v))} disabled={disabled}>
       <RadixSelect.Trigger
         aria-label={ariaLabel}
-        className={clsx('input inline-flex items-center justify-between gap-2 text-left data-[placeholder]:text-faint', className)}
+        className={clsx('input flex items-center justify-between gap-2 text-left data-[placeholder]:text-faint', className)}
       >
         <span className="min-w-0 truncate">
           <RadixSelect.Value placeholder={placeholder} />

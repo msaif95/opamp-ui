@@ -25,10 +25,12 @@ interface AuthState {
   logout: () => void
   /** Re-reads the user's projects and roles, e.g. after an admin creates a project. */
   reloadUser: () => Promise<void>
-  /** True if the user has at least this role somewhere: globally or in any project. Use it to decide whether to offer an action at all. */
+  /** True if the user has at least this role somewhere: globally, in any project, or on any group. Use it to decide whether to offer an action at all. */
   can: (role: Role) => boolean
   /** True if the user has at least this role on a resource in the given project (null: outside any project). */
   canIn: (project: string | null, role: Role) => boolean
+  /** True if the user has at least this role on the given group (checks group-level, then project-level). */
+  canInGroup: (groupId: string, projectId: string | null, role: Role) => boolean
   /** Projects in which the user has at least this role, for "create in…" pickers. */
   projectsFor: (role: Role) => { id: string; name: string }[]
 }
@@ -91,12 +93,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(await api.me())
       },
       can: (role) =>
-        user !== null && (user.admin || rank[user.role] >= rank[role] || user.projects.some((p) => rank[p.role] >= rank[role])),
+        user !== null &&
+        (user.admin ||
+          rank[user.role] >= rank[role] ||
+          user.projects.some((p) => rank[p.role] >= rank[role]) ||
+          user.groups?.some((g) => rank[g.role] >= rank[role])),
       canIn: (project, role) => {
         if (!user) return false
         if (user.admin) return true
         if (project === null) return rank[user.role] >= rank[role]
-        return rank[user.projects.find((p) => p.id === project)?.role ?? ''] >= rank[role]
+        if (rank[user.projects.find((p) => p.id === project)?.role ?? ''] >= rank[role]) return true
+        return user.groups?.some((g) => g.project_id === project && rank[g.role] >= rank[role]) ?? false
+      },
+      canInGroup: (groupId, projectId, role) => {
+        if (!user) return false
+        if (user.admin) return true
+        if (projectId !== null && rank[user.projects.find((p) => p.id === projectId)?.role ?? ''] >= rank[role]) return true
+        return rank[user.groups?.find((g) => g.id === groupId)?.role ?? ''] >= rank[role]
       },
       projectsFor: (role) => {
         if (!user) return []
